@@ -92,10 +92,7 @@ def clean_csv(input_file, genome_build) -> pd.DataFrame:
         delimiter=",",
         parse_dates=['date_last_evaluated'],
         low_memory=False,
-        dtype={'chromosome': 'str', 'start': 'Int64', 'start_38': 'Int64'},
         )
-    #df['start'] = pd.to_numeric(df['start'], errors='coerce')
-    #df['start_38'] = pd.to_numeric(df['start_38'], errors='coerce')
     columns = {"chromosome": "CHROM",
                 "start": "POS",
                 "reference_allele": "REF",
@@ -284,13 +281,9 @@ def aggregate_uniq_vars(probeset_df, probeset, aggregated_database) -> pd.DataFr
         })
 
     aggregated_df = pd.DataFrame(aggregated_data)
+    aggregated_df['POS'] = aggregated_df['POS'].astype('Int64')
     aggregated_df = sort_aggregated_data(aggregated_df)
     aggregated_df.to_csv(aggregated_database, sep="\t", index=False, header=False)
-    
-    for index, row in aggregated_df.iterrows():
-        pos = row['POS']
-        if not isinstance(pos, int):
-            raise ValueError(f"Invalid position at row {index}: {pos} is not an int")
 
     return aggregated_df
 
@@ -369,7 +362,6 @@ def bcftools_annotate_vcf(aggregated_database, minimal_vcf, header_filename, out
         f"{minimal_vcf}")
     with open(output_filename, 'w') as f:
         f.write(annotate_output)
-    # TODO: raise error if cannot parse position with int64, idk why it passed DNAnexus
 
 def download_input_file(remote_file) -> str:
     '''
