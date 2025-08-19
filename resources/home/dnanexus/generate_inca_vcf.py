@@ -67,7 +67,7 @@ def parse_args() -> argparse.Namespace:
 
     return args
 
-def clean_csv(input_file) -> pd.DataFrame:
+def clean_csv(input_file, genome_build) -> pd.DataFrame:
     '''
     Clean up the Inca database CSV by: 
     - Convert to tab separated instead of comma
@@ -79,6 +79,8 @@ def clean_csv(input_file) -> pd.DataFrame:
     ----------
     input_file : str
         Filepath to Inca CSV
+    genome_build : str
+        Genome build to specify columns
 
     Returns
     -------
@@ -89,11 +91,18 @@ def clean_csv(input_file) -> pd.DataFrame:
         input_file,
         delimiter=",",
         parse_dates=['date_last_evaluated'],
-        low_memory=False)
-    df.rename(columns={"chromosome": "CHROM",
-                       "start": "POS",
-                       "reference_allele": "REF",
-                       "alternate_allele": "ALT"}, inplace=True)
+        low_memory=False,
+        dtype={'chromosome': 'str', 'start': 'Int64', 'start_38': 'Int64'},
+        )
+    #df['start'] = pd.to_numeric(df['start'], errors='coerce')
+    #df['start_38'] = pd.to_numeric(df['start_38'], errors='coerce')
+    columns = {"chromosome": "CHROM",
+                "start": "POS",
+                "reference_allele": "REF",
+                "alternate_allele": "ALT"}
+    if genome_build == "GRCh38":
+        columns["start_38"] = columns.pop("start")
+    df.rename(columns=columns, inplace=True)
     df = df[["CHROM", "POS", "REF", "ALT"] + [ col for col in df.columns if col not in ["CHROM", "POS", "REF", "ALT"]]]
     df = df.applymap(lambda x: x.replace("\n", " ").strip() if isinstance(x, str) else x)
 
@@ -124,17 +133,17 @@ def filter_probeset(cleaned_csv, probeset, genome_build) -> pd.DataFrame:
     if genome_build == "GRCh37":
         prefiltered_df = interpreted_df[interpreted_df['ref_genome'].str.contains("grch37", na=False, case=False)]
     else:
-        prefiltered_df = interpreted_df[interpreted_df['ref_genome'].str.contains("grch38", na=False, case=False)]
+        prefiltered_df = interpreted_df[interpreted_df['ref_genome_38'].str.contains("grch38", na=False, case=False)]
 
     all_dfs = []
-    for type in probeset:
-        if type in ["99347387", "96527893"]:
+    for origin in probeset:
+        if origin in ["99347387", "96527893"]:
             column = "probeset_id"
-        elif type in ["germline", "somatic"]:
+        elif origin in ["germline", "somatic"]:
             column = "allele_origin"
         else:
-            raise ValueError(f"Invalid argument: '{type}'. Expected one of: germline, somatic, 99347387, or 96527893.")
-        filtered_df = prefiltered_df.loc[prefiltered_df[column] == type]
+            raise ValueError(f"Invalid argument: '{origin}'. Expected one of: germline, somatic, 99347387, or 96527893.")
+        filtered_df = prefiltered_df.loc[prefiltered_df[column] == origin]
         all_dfs.append(filtered_df)
     
     probeset_df = pd.concat(all_dfs, ignore_index=True)
@@ -242,8 +251,8 @@ def aggregate_uniq_vars(probeset_df, probeset, aggregated_database) -> pd.DataFr
     probeset_df = probeset_df.dropna(subset=['date_last_evaluated'])
 
     aggregated_data = []
-    for type in probeset:
-        if type in ["germline", "99347387"]:
+    for origin in probeset:
+        if origin in ["germline", "99347387"]:
             classification = "germline"
         else:
             classification = "oncogenicity"
@@ -277,6 +286,11 @@ def aggregate_uniq_vars(probeset_df, probeset, aggregated_database) -> pd.DataFr
     aggregated_df = pd.DataFrame(aggregated_data)
     aggregated_df = sort_aggregated_data(aggregated_df)
     aggregated_df.to_csv(aggregated_database, sep="\t", index=False, header=False)
+    
+    for index, row in aggregated_df.iterrows():
+        pos = row['POS']
+        if not isinstance(pos, int):
+            raise ValueError(f"Invalid position at row {index}: {pos} is not an int")
 
     return aggregated_df
 
@@ -341,6 +355,8 @@ def bcftools_annotate_vcf(aggregated_database, minimal_vcf, header_filename, out
         Output filename of aggregated database
     minimal_vcf : str
         Output filename for the minimal VCF
+    header_filename : str
+        Output filename for the VCF header
     output_filename : str
         Output filename for annotated VCF
     '''
@@ -353,6 +369,7 @@ def bcftools_annotate_vcf(aggregated_database, minimal_vcf, header_filename, out
         f"{minimal_vcf}")
     with open(output_filename, 'w') as f:
         f.write(annotate_output)
+    # TODO: raise error if cannot parse position with int64, idk why it passed DNAnexus
 
 def download_input_file(remote_file) -> str:
     '''
@@ -420,7 +437,7 @@ def main(input_file: str,
     header_filename = "header.vcf"
     aggregated_database = f"{'_'.join(probeset)}_aggregated_database.tsv"
 
-    cleaned_csv = clean_csv(input_file)
+    cleaned_csv = clean_csv(input_file, genome_build)
     probeset_df = filter_probeset(cleaned_csv, probeset, genome_build)
     aggregated_df = aggregate_uniq_vars(probeset_df, probeset, aggregated_database)
 
