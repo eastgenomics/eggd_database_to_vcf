@@ -92,7 +92,7 @@ def clean_csv(input_file, genome_build) -> pd.DataFrame:
         delimiter=",",
         parse_dates=['date_last_evaluated'],
         low_memory=False,
-        )
+    )
     columns = {"chromosome": "CHROM",
                 "start": "POS",
                 "reference_allele": "REF",
@@ -282,13 +282,15 @@ def aggregate_uniq_vars(probeset_df, probeset, aggregated_database) -> pd.DataFr
 
     
     aggregated_df = pd.DataFrame(aggregated_data)
-    if not aggregated_df.empty:
-        aggregated_df['POS'] = aggregated_df['POS'].astype('Int64')
-        aggregated_df = sort_aggregated_data(aggregated_df)
-        aggregated_df.to_csv(aggregated_database, sep="\t", index=False, header=False)
-        return aggregated_df
+
     if aggregated_df.empty:
-        raise ValueError("There are no variants to process. Please check inputs and filters.")
+        raise AssertionError("There are no variants to process. Please check inputs and filters.")
+    
+    aggregated_df['POS'] = aggregated_df['POS'].astype('Int64')
+    aggregated_df = sort_aggregated_data(aggregated_df)
+    aggregated_df.to_csv(aggregated_database, sep="\t", index=False, header=False)
+    return aggregated_df
+    
 
 def intialise_vcf(aggregated_df, minimal_vcf) -> None:
     ''' 
