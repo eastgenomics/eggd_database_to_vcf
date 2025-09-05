@@ -136,7 +136,7 @@ def filter_probeset(cleaned_csv, probeset, genome_build) -> pd.DataFrame:
     for origin in probeset:
         if origin in ["99347387", "96527893"]:
             column = "probeset_id"
-        elif origin in ["germline", "somatic"]:
+        elif origin.lower() in ["germline", "somatic"]:
             column = "allele_origin"
         else:
             raise ValueError(f"Invalid argument: '{origin}'. Expected one of: germline, somatic, 99347387, or 96527893.")
