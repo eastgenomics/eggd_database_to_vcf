@@ -331,17 +331,17 @@ def write_vcf_header(genome_build, header_filename) -> None:
         else:
             header_vcf.write(config.GRCh38_CONTIG)
 
-def index_annotations(aggregated_database) -> None:
+def index_file(file) -> None:
     '''
-    Index the file with aggregated data
+    Bgzip and index file
     
     Parameters
     ----------
-    aggregated_database : str
-        Output filename of aggregated data
+    file : str
+        File to bgzip and index
     '''
-    pysam.tabix_compress(f"{aggregated_database}", f"{aggregated_database}.gz")
-    pysam.tabix_index(f"{aggregated_database}.gz", seq_col=0, start_col=1, end_col=1)
+    pysam.tabix_compress(f"{file}", f"{file}.gz")
+    pysam.tabix_index(f"{file}.gz", seq_col=0, start_col=1, end_col=1)
 
 def bcftools_annotate_vcf(aggregated_database, minimal_vcf, header_filename, output_filename) -> None:
     '''
@@ -367,6 +367,8 @@ def bcftools_annotate_vcf(aggregated_database, minimal_vcf, header_filename, out
         f"{minimal_vcf}")
     with open(output_filename, 'w') as f:
         f.write(annotate_output)
+
+    index_file(output_filename)
 
 def download_input_file(remote_file) -> str:
     '''
@@ -419,7 +421,7 @@ def upload_output_file(outfile) -> None:
         wait_on_close=True,
     )
 
-    return {"output_file": dxpy.dxlink(url_file)}
+    return dxpy.dxlink(url_file)
 
 @dxpy.entry_point("main")
 def main(input_file: str,
@@ -440,13 +442,15 @@ def main(input_file: str,
 
     intialise_vcf(aggregated_df, minimal_vcf)
     write_vcf_header(genome_build, header_filename)
-    index_annotations(aggregated_database)
+    index_file(aggregated_database)
     bcftools_annotate_vcf(aggregated_database, minimal_vcf, header_filename, output_filename)
 
     if os.path.exists("/home/dnanexus"):
-        uploaded_file = upload_output_file(output_filename)
+        output = {}
+        output["output_vcf"] = upload_output_file(f"{output_filename}.gz")
+        output["output_index"] = upload_output_file(f"{output_filename}.gz.tbi")
 
-        return uploaded_file
+        return output
 
 
 if os.path.exists("/home/dnanexus"):
