@@ -484,12 +484,13 @@ def main(input_file: str, output_filename: str, genome_build: str, probeset: str
     if os.path.exists("/home/dnanexus"):
         input_file = download_input_file(input_file)
 
-    # TODO: check that output_filename ends with .vcf, else add .vcf
-
     probeset = [x.strip().lower() for x in probeset.split(",")]
     minimal_vcf = "minimal_vcf.vcf"
     header_filename = "header.vcf"
     aggregated_database = f"{'_'.join(probeset)}_aggregated_database.tsv"
+
+    if not output_filename.endswith(".vcf"):
+        raise ValueError("Output filename must end with '.vcf'")
 
     cleaned_csv = clean_csv(input_file, genome_build)
     probeset_df = filter_probeset(cleaned_csv, probeset, genome_build)
