@@ -41,11 +41,21 @@
     ],
     "outputSpec": [
       {
-        "name": "output_file",
+        "name": "output_vcf",
         "label": "Output VCF of aggregated info from inca database CSV",
         "class": "file",
         "patterns": [
-          "*.vcf"
+          "*.vcf.gz"
+        ],
+        "help": "",
+        "optional": false
+      },
+      {
+        "name": "output_index",
+        "label": "Output index for VCF",
+        "class": "file",
+        "patterns": [
+          "*.vcf.gz.tbi"
         ],
         "help": "",
         "optional": false
