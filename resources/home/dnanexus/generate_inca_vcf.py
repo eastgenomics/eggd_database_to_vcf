@@ -271,11 +271,11 @@ def aggregate_uniq_vars(probeset_df, probeset, aggregated_database) -> pd.DataFr
     """
     probeset_df.loc[:, "germline_classification"] = probeset_df[
         "germline_classification"
-    ].astype(str).str.replace(" ", "_")
+    ].str.replace(" ", "_")
     probeset_df.loc[:, "oncogenicity_classification"] = probeset_df[
         "oncogenicity_classification"
-    ].astype(str).str.replace(" ", "_")
-    probeset_df.loc[:, "CHROM"] = probeset_df["CHROM"].astype(str).str.replace(" ", "")
+    ].str.replace(" ", "_")
+    probeset_df.loc[:, "CHROM"] = probeset_df["CHROM"].str.replace(" ", "")
     probeset_df = probeset_df.dropna(subset=["date_last_evaluated"])
 
     aggregated_data = []
@@ -325,7 +325,7 @@ def aggregate_uniq_vars(probeset_df, probeset, aggregated_database) -> pd.DataFr
     aggregated_df["POS"] = aggregated_df["POS"].astype("Int64")
     aggregated_df = sort_aggregated_data(aggregated_df)
     aggregated_df.to_csv(aggregated_database, sep="\t", index=False, header=False)
-    #print(aggregated_df)
+    print(aggregated_df)
     return aggregated_df
 
 
