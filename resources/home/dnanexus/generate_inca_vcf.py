@@ -296,8 +296,6 @@ def aggregate_uniq_vars(probeset_df, probeset, aggregated_database) -> pd.DataFr
         total_oncogenicity = format_total_classifications(
             group["oncogenicity_classification"]
         )
-        #print(group["oncogenicity_classification"])
-        #print(total_oncogenicity)
 
         aggregated_data.append(
             {
@@ -325,7 +323,6 @@ def aggregate_uniq_vars(probeset_df, probeset, aggregated_database) -> pd.DataFr
     aggregated_df["POS"] = aggregated_df["POS"].astype("Int64")
     aggregated_df = sort_aggregated_data(aggregated_df)
     aggregated_df.to_csv(aggregated_database, sep="\t", index=False, header=False)
-    print(aggregated_df)
     return aggregated_df
 
 
