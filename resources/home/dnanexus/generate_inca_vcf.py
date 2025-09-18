@@ -271,53 +271,49 @@ def aggregate_uniq_vars(probeset_df, probeset, aggregated_database) -> pd.DataFr
     """
     probeset_df.loc[:, "germline_classification"] = probeset_df[
         "germline_classification"
-    ].str.replace(" ", "_")
+    ].astype(str).str.replace(" ", "_")
     probeset_df.loc[:, "oncogenicity_classification"] = probeset_df[
         "oncogenicity_classification"
-    ].str.replace(" ", "_")
-    probeset_df.loc[:, "CHROM"] = probeset_df["CHROM"].str.replace(" ", "")
+    ].astype(str).str.replace(" ", "_")
+    probeset_df.loc[:, "CHROM"] = probeset_df["CHROM"].astype(str).str.replace(" ", "")
     probeset_df = probeset_df.dropna(subset=["date_last_evaluated"])
 
     aggregated_data = []
-    for origin in probeset:
-        if origin in ["germline", "99347387"]:
-            classification = "germline"
-        else:
-            classification = "oncogenicity"
+    grouped = probeset_df.groupby(
+        ["CHROM", "POS", "REF", "ALT"]
+    )
 
-        grouped = probeset_df.groupby(
-            ["CHROM", "POS", "REF", "ALT", f"{classification}_classification"]
+    for _, group in grouped:
+        latest_entry = get_latest_entry(group)
+        latest_germline = latest_entry["germline_classification"]
+        latest_oncogenicity = latest_entry["oncogenicity_classification"]
+        latest_date = latest_entry["date_last_evaluated"]
+        latest_sample_id = latest_entry["specimen_id"]
+        hgvs = aggregate_hgvs(group["hgvsc"])
+        total_germline = format_total_classifications(
+            group["germline_classification"]
         )
+        total_oncogenicity = format_total_classifications(
+            group["oncogenicity_classification"]
+        )
+        #print(group["oncogenicity_classification"])
+        #print(total_oncogenicity)
 
-        for _, group in grouped:
-            latest_entry = get_latest_entry(group)
-            latest_germline = latest_entry["germline_classification"]
-            latest_oncogenicity = latest_entry["oncogenicity_classification"]
-            latest_date = latest_entry["date_last_evaluated"]
-            latest_sample_id = latest_entry["specimen_id"]
-            hgvs = aggregate_hgvs(group["hgvsc"])
-            total_germline = format_total_classifications(
-                group["germline_classification"]
-            )
-            total_oncogenicity = format_total_classifications(
-                group["oncogenicity_classification"]
-            )
-
-            aggregated_data.append(
-                {
-                    "CHROM": latest_entry["CHROM"],
-                    "POS": latest_entry["POS"],
-                    "REF": latest_entry["REF"],
-                    "ALT": latest_entry["ALT"],
-                    "latest_germline": latest_germline,
-                    "latest_oncogenicity": latest_oncogenicity,
-                    "latest_date": latest_date,
-                    "latest_sample_id": latest_sample_id,
-                    "total_germline": total_germline,
-                    "total_oncogenicity": total_oncogenicity,
-                    "aggregated_hgvs": hgvs,
-                }
-            )
+        aggregated_data.append(
+            {
+                "CHROM": latest_entry["CHROM"],
+                "POS": latest_entry["POS"],
+                "REF": latest_entry["REF"],
+                "ALT": latest_entry["ALT"],
+                "latest_germline": latest_germline,
+                "latest_oncogenicity": latest_oncogenicity,
+                "latest_date": latest_date,
+                "latest_sample_id": latest_sample_id,
+                "total_germline": total_germline,
+                "total_oncogenicity": total_oncogenicity,
+                "aggregated_hgvs": hgvs,
+            }
+        )
 
     aggregated_df = pd.DataFrame(aggregated_data)
 
@@ -329,6 +325,7 @@ def aggregate_uniq_vars(probeset_df, probeset, aggregated_database) -> pd.DataFr
     aggregated_df["POS"] = aggregated_df["POS"].astype("Int64")
     aggregated_df = sort_aggregated_data(aggregated_df)
     aggregated_df.to_csv(aggregated_database, sep="\t", index=False, header=False)
+    #print(aggregated_df)
     return aggregated_df
 
 
