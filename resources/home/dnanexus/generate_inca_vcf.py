@@ -25,7 +25,7 @@ def parse_args() -> argparse.Namespace:
         Namespace of passed command line argument inputs
     """
     parser = argparse.ArgumentParser(
-        description="Create VCF from previous interpretations"
+        description="Create a VCF from a variant database CSV export file"
     )
 
     parser.add_argument(
@@ -33,7 +33,7 @@ def parse_args() -> argparse.Namespace:
         "--input_file",
         type=str,
         required=True,
-        help=("CSV file exported from the previous interpretations " "database"),
+        help=("CSV file export of variant database"),
     )
 
     parser.add_argument(
@@ -49,7 +49,7 @@ def parse_args() -> argparse.Namespace:
         type=str,
         required=True,
         choices=["GRCh37", "GRCh38"],
-        help="Genome build the samples were run in",
+        help="Reference genome build used for analysis",
     )
 
     parser.add_argument(
@@ -68,7 +68,7 @@ def parse_args() -> argparse.Namespace:
 
 def clean_csv(input_file, genome_build) -> pd.DataFrame:
     """
-    Clean up the Inca database CSV by:
+    Clean up the input CSV by:
     - Convert to tab separated instead of comma
     - Rename to CHROM, POS, REF, ALT
     - Move CHROM, POS, REF, ALT to be first 4 columns
@@ -77,7 +77,7 @@ def clean_csv(input_file, genome_build) -> pd.DataFrame:
     Parameters
     ----------
     input_file : str
-        Filepath to Inca CSV
+        Filepath to input CSV
     genome_build : str
         Genome build to specify columns
 
