@@ -474,18 +474,15 @@ def upload_output_file(outfile) -> None:
 
 
 def create_output_filename(database, genome_build, probeset):
-    """_summary_
+    """ Generate an output filename if none is provided
 
     Args:
-        database (_type_): _description_
-        genome_build (_type_): _description_
-        probeset (_type_): _description_
-
-    Raises:
-        ValueError: _description_
+        database (str): inca or variant_store
+        genome_build (str): GRCh37 or GRCh38
+        probeset (str): germline or somatic
 
     Returns:
-        _type_: _description_
+        str: Name for output VCF
     """
     date = datetime.today().strftime("%y%m%d")
     output = f"{date}_{database}_{genome_build}"
