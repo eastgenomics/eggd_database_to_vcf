@@ -29,18 +29,27 @@ def parse_args() -> argparse.Namespace:
     )
 
     parser.add_argument(
+        "-d",
+        "--database",
+        type=str,
+        required=True,
+        choices=["inca", "variant_store"],
+        help="Type of database (inca or variant_store) used to generate input data"
+    )
+
+    parser.add_argument(
         "-i",
         "--input_file",
         type=str,
         required=True,
-        help=("CSV file export of variant database"),
+        help="CSV file export of variant database"
     )
 
     parser.add_argument(
         "-o",
         "--output_filename",
         type=str,
-        help=("Output VCF filename"),
+        help="Output VCF filename"
     )
 
     parser.add_argument(
@@ -49,16 +58,15 @@ def parse_args() -> argparse.Namespace:
         type=str,
         required=True,
         choices=["GRCh37", "GRCh38"],
-        help="Reference genome build used for analysis",
+        help="Reference genome build used for analysis"
     )
 
     parser.add_argument(
         "-set",
         "--probeset",
         type=str,
-        help=(
-            "probeset_id or allele_origin to filter. Comma-separated if more than one."
-        ),
+        choices=["germline", "somatic"],
+        help="Probeset (germline or somatic) to filter inca data on"
     )
 
     args = parser.parse_args()
