@@ -1,4 +1,5 @@
 from glob import glob
+from datetime import datetime
 import os
 import config
 import subprocess
@@ -472,18 +473,45 @@ def upload_output_file(outfile) -> None:
     return dxpy.dxlink(url_file)
 
 
+def create_output_filename(database, genome_build, probeset):
+    """_summary_
+
+    Args:
+        database (_type_): _description_
+        genome_build (_type_): _description_
+        probeset (_type_): _description_
+
+    Raises:
+        ValueError: _description_
+
+    Returns:
+        _type_: _description_
+    """
+    date = datetime.today().strftime("%y%m%d")
+    output = f"{date}_{database}_{genome_build}"
+
+    if probeset:
+        output += f"_{probeset}"
+
+    output += ".vcf"
+
+    return output
+
+
 @dxpy.entry_point("main")
 def main(database: str, input_file: str, output_filename: str, genome_build: str, probeset: str):
 
     if os.path.exists("/home/dnanexus"):
         input_file = download_input_file(input_file)
 
+    if not output_filename:
+        output_filename = create_output_filename(database, genome_build, probeset)
+    elif not output_filename.endswith(".vcf"):
+        raise ValueError("Output filename must end with '.vcf'")
+
     minimal_vcf = "minimal_vcf.vcf"
     header_filename = "header.vcf"
     aggregated_database = "aggregated_database.tsv"
-
-    if not output_filename.endswith(".vcf"):
-        raise ValueError("Output filename must end with '.vcf'")
 
     cleaned_csv = clean_csv(input_file, genome_build)
     probeset_df = filter_probeset(cleaned_csv, probeset, genome_build)
