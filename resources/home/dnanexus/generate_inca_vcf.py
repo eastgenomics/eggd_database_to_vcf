@@ -156,23 +156,14 @@ def filter_probeset(cleaned_csv, probeset, genome_build) -> pd.DataFrame:
             interpreted_df["ref_genome_38"].str.contains("grch38", na=False, case=False)
         ]
 
-    all_dfs = []
-    for origin in probeset:
-        if origin in ["99347387", "96527893"]:
-            column = "probeset_id"
-        elif origin.lower() in ["germline", "somatic"]:
-            column = "allele_origin"
-        else:
-            raise ValueError(
-                f"Invalid argument: '{origin}'. Expected one of: germline, somatic, 99347387, or 96527893."
-            )
-        filtered_df = prefiltered_df.loc[prefiltered_df[column] == origin]
-        all_dfs.append(filtered_df)
+    if probeset:
+        filtered_df = prefiltered_df.loc[prefiltered_df["allele_origin"] == probeset]
+    else:
+        filtered_df = prefiltered_df
 
-    probeset_df = pd.concat(all_dfs, ignore_index=True)
-    probeset_df = probeset_df.drop_duplicates()
+    filtered_df = filtered_df.drop_duplicates()
 
-    return probeset_df
+    return filtered_df
 
 
 def get_latest_entry(sub_df) -> pd.Series:
@@ -482,14 +473,14 @@ def upload_output_file(outfile) -> None:
 
 
 @dxpy.entry_point("main")
-def main(input_file: str, output_filename: str, genome_build: str, probeset: str):
+def main(database: str, input_file: str, output_filename: str, genome_build: str, probeset: str):
+
     if os.path.exists("/home/dnanexus"):
         input_file = download_input_file(input_file)
 
-    probeset = [x.strip().lower() for x in probeset.split(",")]
     minimal_vcf = "minimal_vcf.vcf"
     header_filename = "header.vcf"
-    aggregated_database = f"{'_'.join(probeset)}_aggregated_database.tsv"
+    aggregated_database = "aggregated_database.tsv"
 
     if not output_filename.endswith(".vcf"):
         raise ValueError("Output filename must end with '.vcf'")
@@ -517,4 +508,4 @@ if os.path.exists("/home/dnanexus"):
     dxpy.run()
 elif __name__ == "__main__":
     args = parse_args()
-    main(args.input_file, args.output_filename, args.genome_build, args.probeset)
+    main(args.database, args.input_file, args.output_filename, args.genome_build, args.probeset)
