@@ -75,7 +75,7 @@ def parse_args() -> argparse.Namespace:
     return args
 
 
-def clean_csv(input_file, genome_build) -> pd.DataFrame:
+def clean_csv(database, input_file, genome_build) -> pd.DataFrame:
     """
     Clean up the input CSV by:
     - Convert to tab separated instead of comma
@@ -85,6 +85,8 @@ def clean_csv(input_file, genome_build) -> pd.DataFrame:
 
     Parameters
     ----------
+    database : str
+        inca or variant_store, affects column names
     input_file : str
         Filepath to input CSV
     genome_build : str
@@ -98,21 +100,34 @@ def clean_csv(input_file, genome_build) -> pd.DataFrame:
     df = pd.read_csv(
         input_file,
         delimiter=",",
-        parse_dates=["date_last_evaluated"],
         low_memory=False,
     )
-    columns = {
-        "chromosome": "CHROM",
-        "start": "POS",
-        "reference_allele": "REF",
-        "alternate_allele": "ALT",
-    }
-    if genome_build == "GRCh38":
-        columns["start_38"] = columns.pop("start")
+
+    if database == 'inca':
+        df["date_last_evaluated"] = pd.to_datetime(df["date_last_evaluated"])
+        columns = {
+            "chromosome": "CHROM",
+            "start": "POS",
+            "reference_allele": "REF",
+            "alternate_allele": "ALT",
+        }
+        if genome_build == "GRCh38":
+            columns["start_38"] = columns.pop("start")
+
+    else:
+        df['alternatealleles'] = df['alternatealleles'].map(lambda x: x.lstrip('[').rstrip(']'))
+        columns = {
+            "contigname": "CHROM",
+            "start": "POS",
+            "referenceallele": "REF",
+            "alternatealleles": "ALT",
+            "filters": "FILTER"
+        }
+
     df.rename(columns=columns, inplace=True)
     df = df[
-        ["CHROM", "POS", "REF", "ALT"]
-        + [col for col in df.columns if col not in ["CHROM", "POS", "REF", "ALT"]]
+        list(columns.values())
+        + [col for col in df.columns if col not in list(columns.values())]
     ]
     df = df.applymap(
         lambda x: x.replace("\n", " ").strip() if isinstance(x, str) else x
@@ -510,7 +525,7 @@ def main(database: str, input_file: str, output_filename: str, genome_build: str
     header_filename = "header.vcf"
     aggregated_database = "aggregated_database.tsv"
 
-    cleaned_csv = clean_csv(input_file, genome_build)
+    cleaned_csv = clean_csv(database, input_file, genome_build)
     probeset_df = filter_probeset(cleaned_csv, probeset, genome_build)
     aggregated_df = aggregate_uniq_vars(probeset_df, probeset, aggregated_database)
 
