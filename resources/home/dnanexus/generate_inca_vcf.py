@@ -1,6 +1,7 @@
 from glob import glob
 from datetime import datetime
 import os
+import re
 import config
 import subprocess
 
@@ -105,6 +106,11 @@ def clean_csv(database, input_file, genome_build) -> pd.DataFrame:
 
     if database == 'inca':
         df["date_last_evaluated"] = pd.to_datetime(df["date_last_evaluated"])
+        df.loc[:, "germline_classification"] = df[
+            "germline_classification"].str.replace(" ", "_")
+        df.loc[:, "oncogenicity_classification"] = df[
+            "oncogenicity_classification"].str.replace(" ", "_")
+
         columns = {
             "chromosome": "CHROM",
             "start": "POS",
@@ -178,6 +184,7 @@ def filter_probeset(cleaned_csv, probeset, genome_build) -> pd.DataFrame:
         filtered_df = prefiltered_df
 
     filtered_df = filtered_df.drop_duplicates()
+    filtered_df = filtered_df.dropna(subset=["date_last_evaluated"])
 
     return filtered_df
 
@@ -203,20 +210,26 @@ def get_latest_entry(sub_df) -> pd.Series:
 
 def aggregate_hgvs(hgvs_series) -> str:
     """
-    Aggregates all unique HGVS
+    Given the 'attributes' column for one variant group from variant store
+    data, extract all HGVSc from each row and combine into a single list.
 
     Parameters
     ----------
     hgvs_series : pd.Series
-        HGVSc per variant
+        'attributes' column from variant store data
 
     Returns
     -------
     str
         All HGVSc per variant joined
     """
-    unique_hgvs = hgvs_series.dropna().unique()
-    return "|".join(unique_hgvs)
+    all_hgvs = []
+    for attr_string in hgvs_series:
+        # extract the NM_*:c.* value from a string of pipe-separated values
+        all_hgvs += re.findall(r"(?<=\|)NM_(.[^\|]*)(:c\.)(.*?)(?=\|)", attr_string)
+    uniq_hgvs = list(set([x for x in all_hgvs if x]))
+
+    return "|".join(uniq_hgvs)
 
 
 def format_total_classifications(classifications) -> str:
@@ -260,12 +273,12 @@ def sort_aggregated_data(aggregated_df) -> pd.DataFrame:
     aggregated_df["CHROM"] = pd.Categorical(
         aggregated_df["CHROM"], categories=chromosome_order, ordered=True
     )
-    aggregated_df = aggregated_df.sort_values(by=["CHROM", "POS"])
+    aggregated_df = aggregated_df.sort_values(by=["CHROM", "POS", "REF", "ALT"])
 
     return aggregated_df
 
 
-def aggregate_uniq_vars(probeset_df, probeset, aggregated_database) -> pd.DataFrame:
+def aggregate_uniq_vars(db, probeset_df, aggregated_database) -> pd.DataFrame:
     """
     Aggregate data for each unique variant
     Similaritites to create_vcf_from_inca_csv.py by Raymond Miles
@@ -284,49 +297,59 @@ def aggregate_uniq_vars(probeset_df, probeset, aggregated_database) -> pd.DataFr
     pd.DataFrame
         Dataframe of aggregated data
     """
-    probeset_df.loc[:, "germline_classification"] = probeset_df[
-        "germline_classification"
-    ].str.replace(" ", "_")
-    probeset_df.loc[:, "oncogenicity_classification"] = probeset_df[
-        "oncogenicity_classification"
-    ].str.replace(" ", "_")
-    probeset_df.loc[:, "CHROM"] = probeset_df["CHROM"].str.replace(" ", "")
-    probeset_df = probeset_df.dropna(subset=["date_last_evaluated"])
 
     aggregated_data = []
-    grouped = probeset_df.groupby(
-        ["CHROM", "POS", "REF", "ALT"]
-    )
+    grouped = probeset_df.groupby(["CHROM", "POS", "REF", "ALT"])
+    if db == 'variant_store':
+        uniq_sample_count = db["sampleid"].dropna().unique().count()
 
     for _, group in grouped:
-        latest_entry = get_latest_entry(group)
-        latest_germline = latest_entry["germline_classification"]
-        latest_oncogenicity = latest_entry["oncogenicity_classification"]
-        latest_date = latest_entry["date_last_evaluated"]
-        latest_sample_id = latest_entry["specimen_id"]
-        hgvs = aggregate_hgvs(group["hgvsc"])
-        total_germline = format_total_classifications(
-            group["germline_classification"]
-        )
-        total_oncogenicity = format_total_classifications(
-            group["oncogenicity_classification"]
-        )
+        if db == 'inca':
+            latest_entry = get_latest_entry(group)
+            latest_germline = latest_entry["germline_classification"]
+            latest_oncogenicity = latest_entry["oncogenicity_classification"]
+            latest_date = latest_entry["date_last_evaluated"]
+            latest_sample_id = latest_entry["specimen_id"]
+            hgvs = "|".join(group["hgvsc"].dropna().unique())
+            total_germline = format_total_classifications(
+                group["germline_classification"]
+            )
+            total_oncogenicity = format_total_classifications(
+                group["oncogenicity_classification"]
+            )
 
-        aggregated_data.append(
-            {
-                "CHROM": latest_entry["CHROM"],
-                "POS": latest_entry["POS"],
-                "REF": latest_entry["REF"],
-                "ALT": latest_entry["ALT"],
-                "latest_germline": latest_germline,
-                "latest_oncogenicity": latest_oncogenicity,
-                "latest_date": latest_date,
-                "latest_sample_id": latest_sample_id,
-                "total_germline": total_germline,
-                "total_oncogenicity": total_oncogenicity,
-                "aggregated_hgvs": hgvs,
-            }
-        )
+            aggregated_data.append(
+                {
+                    "CHROM": latest_entry["CHROM"],
+                    "POS": latest_entry["POS"],
+                    "REF": latest_entry["REF"],
+                    "ALT": latest_entry["ALT"],
+                    "latest_germline": latest_germline,
+                    "latest_oncogenicity": latest_oncogenicity,
+                    "latest_date": latest_date,
+                    "latest_sample_id": latest_sample_id,
+                    "total_germline": total_germline,
+                    "total_oncogenicity": total_oncogenicity,
+                    "aggregated_hgvs": hgvs,
+                }
+            )
+
+        else:
+            filters = "|".join(group["FILTER"].dropna().unique())
+            hgvs = aggregate_hgvs(group['attributes'])
+
+            aggregated_data.append(
+                {
+                    "CHROM": group['CHROM'][0],
+                    "POS": group['POS'][0],
+                    "REF": group['REF'][0],
+                    "ALT": group['ALT'][0],
+                    "FILTER": filters,
+                    "aggregated_hgvs": hgvs,
+                    "variant_sample_count": ['sampleid'].dropna().unique().count(),
+                    "total_samples": uniq_sample_count,
+                }
+            )
 
     aggregated_df = pd.DataFrame(aggregated_data)
 
@@ -525,9 +548,12 @@ def main(database: str, input_file: str, output_filename: str, genome_build: str
     header_filename = "header.vcf"
     aggregated_database = "aggregated_database.tsv"
 
-    cleaned_csv = clean_csv(database, input_file, genome_build)
-    probeset_df = filter_probeset(cleaned_csv, probeset, genome_build)
-    aggregated_df = aggregate_uniq_vars(probeset_df, probeset, aggregated_database)
+    initial_df = clean_csv(database, input_file, genome_build)
+    if database == 'inca':
+        filtered_df = filter_probeset(initial_df, probeset, genome_build)
+    else:
+        filtered_df = initial_df
+    aggregated_df = aggregate_uniq_vars(database, filtered_df, aggregated_database)
 
     intialise_vcf(aggregated_df, minimal_vcf)
     write_vcf_header(genome_build, header_filename)
