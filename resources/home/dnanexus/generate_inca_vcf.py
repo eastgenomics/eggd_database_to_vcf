@@ -386,7 +386,7 @@ def intialise_vcf(aggregated_df, minimal_vcf) -> None:
         vcf_file.write("\n".join(vcf_lines) + "\n")
 
 
-def write_vcf_header(genome_build, header_filename) -> None:
+def write_vcf_header(db, genome_build, header_filename) -> None:
     """
     Write VCF header by populating INFO fields and specifying contigs
 
@@ -397,8 +397,13 @@ def write_vcf_header(genome_build, header_filename) -> None:
     header_filename : str
         Output filename for the VCF header
     """
+    if db == 'inca':
+        config_field = config.INFO_FIELDS_INCA
+    else:
+        config_field = config.INFO_FIELDS_VARSTORE
+
     with open(header_filename, "w") as header_vcf:
-        for field_info in config.INFO_FIELDS.values():
+        for field_info in config_field.values():
             info_line = f'##INFO=<ID={field_info["id"]},Number={field_info["number"]},Type={field_info["type"]},Description="{field_info["description"]}">\n'
             header_vcf.write(info_line)
 
@@ -555,7 +560,7 @@ def main(database: str, input_file: str, output_filename: str, genome_build: str
     aggregated_df = aggregate_uniq_vars(database, filtered_df, aggregated_database)
 
     intialise_vcf(aggregated_df, minimal_vcf)
-    write_vcf_header(genome_build, header_filename)
+    write_vcf_header(database, genome_build, header_filename)
     index_file(aggregated_database)
     bcftools_annotate_vcf(
         aggregated_database, minimal_vcf, header_filename, output_filename
