@@ -1,4 +1,4 @@
-INFO_FIELDS = {
+INFO_FIELDS_INCA = {
     "latest_germline": {
         "id": "LATEST_GERMLINE",
         "number": 1,
@@ -35,6 +35,24 @@ INFO_FIELDS = {
         "type": "String",
         "description": "Aggregated HGVSc"}
     }
+
+INFO_FIELDS_VARSTORE = {
+    "aggregated_hgvs": {
+        "id": "AGGREGATED_HGVS",
+        "number": 1,
+        "type": "String",
+        "description": "Aggregated HGVSc"},
+    "variant_sample_count": {
+        "id": "VARIANT_SAMPLE_COUNT",
+        "number": 1,
+        "type": "String",
+        "description": "Number of samples a specific variant has been seen in"},
+    "total_samples": {
+        "id": "TOTAL_SAMPLES",
+        "number": 1,
+        "type": "String",
+        "description": "Total number of samples in the relevant variant store"}
+}
 
 GRCh37_CONTIG = '''\
 ##contig=<ID=1,length=249250621>
