@@ -427,7 +427,7 @@ def index_file(file) -> None:
 
 
 def bcftools_annotate_vcf(
-    aggregated_database, minimal_vcf, header_filename, output_filename
+    db, aggregated_database, minimal_vcf, header_filename, output_filename
 ) -> None:
     """
     Run bcftools annotate to annotate the minimal VCF with the aggregated info
@@ -443,8 +443,14 @@ def bcftools_annotate_vcf(
     output_filename : str
         Output filename for annotated VCF
     """
+    if db == 'inca':
+        config_field = config.INFO_FIELDS_INCA
+    else:
+        config_field = config.INFO_FIELDS_VARSTORE
+
+    info_fields = ",".join(item["id"] for item in config_field.values())
+
     # Run bcftools annotate with pysam
-    info_fields = ",".join(item["id"] for item in config.INFO_FIELDS.values())
     annotate_output = pysam.bcftools.annotate(
         "-a",
         f"{aggregated_database}.gz",
@@ -563,7 +569,7 @@ def main(database: str, input_file: str, output_filename: str, genome_build: str
     write_vcf_header(database, genome_build, header_filename)
     index_file(aggregated_database)
     bcftools_annotate_vcf(
-        aggregated_database, minimal_vcf, header_filename, output_filename
+        database, aggregated_database, minimal_vcf, header_filename, output_filename
     )
 
     if os.path.exists("/home/dnanexus"):
