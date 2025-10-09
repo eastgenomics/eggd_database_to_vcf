@@ -226,7 +226,7 @@ def aggregate_hgvs(hgvs_series) -> str:
     all_hgvs = []
     for attr_string in hgvs_series:
         # extract the NM_*:c.* value from a string of pipe-separated values
-        all_hgvs += re.findall(r"(?<=\|)NM_(.[^\|]*)(:c\.)(.*?)(?=\|)", attr_string)
+        all_hgvs += re.findall(r"(?<=\|)(NM_.[^\|]*:c\..*?)(?=\|)", attr_string)
     uniq_hgvs = list(set([x for x in all_hgvs if x]))
 
     return "|".join(uniq_hgvs)
@@ -300,8 +300,9 @@ def aggregate_uniq_vars(db, probeset_df, aggregated_database) -> pd.DataFrame:
 
     aggregated_data = []
     grouped = probeset_df.groupby(["CHROM", "POS", "REF", "ALT"])
+
     if db == 'variant_store':
-        uniq_sample_count = db["sampleid"].dropna().unique().count()
+        uniq_sample_count = len(probeset_df["sampleid"].dropna().unique())
 
     for _, group in grouped:
         if db == 'inca':
@@ -335,18 +336,16 @@ def aggregate_uniq_vars(db, probeset_df, aggregated_database) -> pd.DataFrame:
             )
 
         else:
-            filters = "|".join(group["FILTER"].dropna().unique())
             hgvs = aggregate_hgvs(group['attributes'])
 
             aggregated_data.append(
                 {
-                    "CHROM": group['CHROM'][0],
-                    "POS": group['POS'][0],
-                    "REF": group['REF'][0],
-                    "ALT": group['ALT'][0],
-                    "FILTER": filters,
+                    "CHROM": group['CHROM'].unique()[0],
+                    "POS": group['POS'].unique()[0],
+                    "REF": group['REF'].unique()[0],
+                    "ALT": group['ALT'].unique()[0],
                     "aggregated_hgvs": hgvs,
-                    "variant_sample_count": ['sampleid'].dropna().unique().count(),
+                    "variant_sample_count": len(group['sampleid'].dropna().unique()),
                     "total_samples": uniq_sample_count,
                 }
             )
