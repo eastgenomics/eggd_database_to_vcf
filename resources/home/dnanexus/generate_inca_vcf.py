@@ -164,13 +164,12 @@ def filter_probeset(cleaned_csv, probeset, genome_build) -> pd.DataFrame:
         Dataframe filtered by probeset
     """
     interpreted_df = cleaned_csv[cleaned_csv["interpreted"].str.lower() == "yes"]
+    CLASSIFICATION_ERROR = "Both germline and oncogenicity classification are null in at least one row."
     if (
         interpreted_df["germline_classification"].isnull()
         & interpreted_df["oncogenicity_classification"].isnull()
     ).any():
-        raise ValueError(
-            "Both germline and oncogenicity classification are null in at least one row."
-        )
+        raise ValueError(CLASSIFICATION_ERROR)
 
     if genome_build == "GRCh37":
         prefiltered_df = interpreted_df[
@@ -358,11 +357,9 @@ def aggregate_uniq_vars(db, probeset_df, aggregated_database) -> pd.DataFrame:
             )
 
     aggregated_df = pd.DataFrame(aggregated_data)
-
+    VARIANT_ERROR = "There are no variants to process. Please check inputs and filters."
     if aggregated_df.empty:
-        raise AssertionError(
-            "There are no variants to process. Please check inputs and filters."
-        )
+        raise AssertionError(VARIANT_ERROR)
 
     aggregated_df["POS"] = aggregated_df["POS"].astype("Int64")
     aggregated_df = sort_aggregated_data(aggregated_df)
@@ -563,10 +560,11 @@ def main(database: str, input_file: str, output_filename: str, genome_build: str
     if os.path.exists("/home/dnanexus"):
         input_file = download_input_file(input_file)
 
+    OUTPUT_FILENAME_ERROR = "Output filename must end with '.vcf'"
     if not output_filename:
         output_filename = create_output_filename(database, genome_build, probeset)
     elif not output_filename.endswith(".vcf"):
-        raise ValueError("Output filename must end with '.vcf'")
+        raise ValueError(OUTPUT_FILENAME_ERROR)
 
     minimal_vcf = "minimal_vcf.vcf"
     header_filename = "header.vcf"
