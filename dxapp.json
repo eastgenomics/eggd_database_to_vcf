@@ -1,27 +1,33 @@
 {
     "name": "eggd_inca_to_vcf",
     "title": "eggd_inca_to_vcf",
-    "summary": "Creates a VCF from an inca database export",
+    "summary": "Creates a VCF from a variant database export",
     "dxapi": "1.0.0",
-    "version": "1.0.0",
+    "version": "2.0.0",
     "inputSpec": [
       {
+        "name": "database",
+        "label": "Database type",
+        "class": "string",
+        "optional": false,
+        "help": "Type of database (inca or variant_store)"
+      },
+      {
         "name": "input_file",
-        "label": "Inca database export",
+        "label": "Database export CSV file",
         "class": "file",
         "optional": false,
         "patterns": [
           "*.csv"
         ],
-        "help": "Inca database export as a CSV file"
+        "help": "Database export as a CSV file"
       },
       {
         "name": "output_filename",
         "label": "Optional output filename",
         "class": "string",
-        "default": "output.vcf",
         "optional": true,
-        "help": "Genome build for header annotation"
+        "help": "Name for output VCF file"
       },
       {
         "name": "genome_build",
@@ -32,11 +38,10 @@
       },
       {
         "name": "probeset",
-        "label": "Probeset or allele origin",
+        "label": "Probeset",
         "class": "string",
-        "default": "germline somatic",
-        "optional": false,
-        "help": "One or more probeset IDs or allele origins"
+        "optional": true,
+        "help": "Probeset to optionally filter inca variants by (germline or somatic)"
       }
     ],
     "outputSpec": [
