@@ -105,7 +105,8 @@ def clean_csv(database, input_file, genome_build) -> pd.DataFrame:
     )
 
     if database == 'inca':
-        df["date_last_evaluated"] = pd.to_datetime(df["date_last_evaluated"])
+        df["date_last_evaluated"] = pd.to_datetime(
+            df["date_last_evaluated"], errors="coerce")
         df.loc[:, "germline_classification"] = df[
             "germline_classification"].str.replace(" ", "_")
         df.loc[:, "oncogenicity_classification"] = df[
@@ -121,7 +122,9 @@ def clean_csv(database, input_file, genome_build) -> pd.DataFrame:
             columns["start_38"] = columns.pop("start")
 
     else:
-        df['alternatealleles'] = df['alternatealleles'].map(lambda x: x.lstrip('[').rstrip(']'))
+        df['alternatealleles'] = df['alternatealleles'].map(
+            lambda x: x.lstrip('[').rstrip(']')
+            if isinstance(x, str) else x)
         columns = {
             "contigname": "CHROM",
             "start": "POS",
@@ -179,7 +182,8 @@ def filter_probeset(cleaned_csv, probeset, genome_build) -> pd.DataFrame:
         ]
 
     if probeset:
-        filtered_df = prefiltered_df.loc[prefiltered_df["allele_origin"] == probeset]
+        filtered_df = prefiltered_df.loc[
+            prefiltered_df["allele_origin"].str.lower() == probeset]
     else:
         filtered_df = prefiltered_df
 
@@ -224,9 +228,12 @@ def aggregate_hgvs(hgvs_series) -> str:
         All HGVSc per variant joined
     """
     all_hgvs = []
-    for attr_string in hgvs_series:
-        # extract the NM_*:c.* value from a string of pipe-separated values
-        all_hgvs += re.findall(r"(?<=\|)(NM_.[^\|]*:c\..*?)(?=\|)", attr_string)
+    # extract NM_*:c.* value from a string of pipe-separated values
+    pattern = re.compile(r"(?<=\|)(NM_.[^\|]*:c\..*?)(?=\|)")
+
+    for attr_string in hgvs_series.dropna():
+        if isinstance(attr_string, str):
+            all_hgvs += pattern.findall(attr_string)
     uniq_hgvs = list(set([x for x in all_hgvs if x]))
 
     return "|".join(uniq_hgvs)
