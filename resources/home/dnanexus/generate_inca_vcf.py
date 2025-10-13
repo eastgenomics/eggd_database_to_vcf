@@ -1,5 +1,7 @@
 from glob import glob
+from datetime import datetime
 import os
+import re
 import config
 import subprocess
 
@@ -25,7 +27,16 @@ def parse_args() -> argparse.Namespace:
         Namespace of passed command line argument inputs
     """
     parser = argparse.ArgumentParser(
-        description="Create VCF from previous interpretations"
+        description="Create a VCF from a variant database CSV export file"
+    )
+
+    parser.add_argument(
+        "-d",
+        "--database",
+        type=str,
+        required=True,
+        choices=["inca", "variant_store"],
+        help="Type of database (inca or variant_store) used to generate input data"
     )
 
     parser.add_argument(
@@ -33,14 +44,14 @@ def parse_args() -> argparse.Namespace:
         "--input_file",
         type=str,
         required=True,
-        help=("CSV file exported from the previous interpretations " "database"),
+        help="CSV file export of variant database"
     )
 
     parser.add_argument(
         "-o",
         "--output_filename",
         type=str,
-        help=("Output VCF filename"),
+        help="Output VCF filename"
     )
 
     parser.add_argument(
@@ -49,16 +60,15 @@ def parse_args() -> argparse.Namespace:
         type=str,
         required=True,
         choices=["GRCh37", "GRCh38"],
-        help="Genome build the samples were run in",
+        help="Reference genome build used for analysis"
     )
 
     parser.add_argument(
         "-set",
         "--probeset",
         type=str,
-        help=(
-            "probeset_id or allele_origin to filter. Comma-separated if more than one."
-        ),
+        choices=["germline", "somatic"],
+        help="Probeset (germline or somatic) to filter inca data on"
     )
 
     args = parser.parse_args()
@@ -66,9 +76,9 @@ def parse_args() -> argparse.Namespace:
     return args
 
 
-def clean_csv(input_file, genome_build) -> pd.DataFrame:
+def clean_csv(database, input_file, genome_build) -> pd.DataFrame:
     """
-    Clean up the Inca database CSV by:
+    Clean up the input CSV by:
     - Convert to tab separated instead of comma
     - Rename to CHROM, POS, REF, ALT
     - Move CHROM, POS, REF, ALT to be first 4 columns
@@ -76,8 +86,10 @@ def clean_csv(input_file, genome_build) -> pd.DataFrame:
 
     Parameters
     ----------
+    database : str
+        inca or variant_store, affects column names
     input_file : str
-        Filepath to Inca CSV
+        Filepath to input CSV
     genome_build : str
         Genome build to specify columns
 
@@ -89,21 +101,42 @@ def clean_csv(input_file, genome_build) -> pd.DataFrame:
     df = pd.read_csv(
         input_file,
         delimiter=",",
-        parse_dates=["date_last_evaluated"],
         low_memory=False,
     )
-    columns = {
-        "chromosome": "CHROM",
-        "start": "POS",
-        "reference_allele": "REF",
-        "alternate_allele": "ALT",
-    }
-    if genome_build == "GRCh38":
-        columns["start_38"] = columns.pop("start")
+
+    if database == 'inca':
+        df["date_last_evaluated"] = pd.to_datetime(
+            df["date_last_evaluated"], errors="coerce")
+        df.loc[:, "germline_classification"] = df[
+            "germline_classification"].str.replace(" ", "_")
+        df.loc[:, "oncogenicity_classification"] = df[
+            "oncogenicity_classification"].str.replace(" ", "_")
+
+        columns = {
+            "chromosome": "CHROM",
+            "start": "POS",
+            "reference_allele": "REF",
+            "alternate_allele": "ALT",
+        }
+        if genome_build == "GRCh38":
+            columns["start_38"] = columns.pop("start")
+
+    else:
+        df['alternatealleles'] = df['alternatealleles'].map(
+            lambda x: x.lstrip('[').rstrip(']')
+            if isinstance(x, str) else x)
+        columns = {
+            "contigname": "CHROM",
+            "start": "POS",
+            "referenceallele": "REF",
+            "alternatealleles": "ALT",
+            "filters": "FILTER"
+        }
+
     df.rename(columns=columns, inplace=True)
     df = df[
-        ["CHROM", "POS", "REF", "ALT"]
-        + [col for col in df.columns if col not in ["CHROM", "POS", "REF", "ALT"]]
+        list(columns.values())
+        + [col for col in df.columns if col not in list(columns.values())]
     ]
     df = df.applymap(
         lambda x: x.replace("\n", " ").strip() if isinstance(x, str) else x
@@ -131,13 +164,12 @@ def filter_probeset(cleaned_csv, probeset, genome_build) -> pd.DataFrame:
         Dataframe filtered by probeset
     """
     interpreted_df = cleaned_csv[cleaned_csv["interpreted"].str.lower() == "yes"]
+    CLASSIFICATION_ERROR = "Both germline and oncogenicity classification are null in at least one row."
     if (
         interpreted_df["germline_classification"].isnull()
         & interpreted_df["oncogenicity_classification"].isnull()
     ).any():
-        raise ValueError(
-            "Both germline and oncogenicity classification are null in at least one row."
-        )
+        raise ValueError(CLASSIFICATION_ERROR)
 
     if genome_build == "GRCh37":
         prefiltered_df = interpreted_df[
@@ -148,23 +180,16 @@ def filter_probeset(cleaned_csv, probeset, genome_build) -> pd.DataFrame:
             interpreted_df["ref_genome_38"].str.contains("grch38", na=False, case=False)
         ]
 
-    all_dfs = []
-    for origin in probeset:
-        if origin in ["99347387", "96527893"]:
-            column = "probeset_id"
-        elif origin.lower() in ["germline", "somatic"]:
-            column = "allele_origin"
-        else:
-            raise ValueError(
-                f"Invalid argument: '{origin}'. Expected one of: germline, somatic, 99347387, or 96527893."
-            )
-        filtered_df = prefiltered_df.loc[prefiltered_df[column] == origin]
-        all_dfs.append(filtered_df)
+    if probeset:
+        filtered_df = prefiltered_df.loc[
+            prefiltered_df["allele_origin"].str.lower() == probeset]
+    else:
+        filtered_df = prefiltered_df
 
-    probeset_df = pd.concat(all_dfs, ignore_index=True)
-    probeset_df = probeset_df.drop_duplicates()
+    filtered_df = filtered_df.drop_duplicates()
+    filtered_df = filtered_df.dropna(subset=["date_last_evaluated"])
 
-    return probeset_df
+    return filtered_df
 
 
 def get_latest_entry(sub_df) -> pd.Series:
@@ -188,20 +213,29 @@ def get_latest_entry(sub_df) -> pd.Series:
 
 def aggregate_hgvs(hgvs_series) -> str:
     """
-    Aggregates all unique HGVS
+    Given the 'attributes' column for one variant group from variant store
+    data, extract all HGVSc from each row and combine into a single list.
 
     Parameters
     ----------
     hgvs_series : pd.Series
-        HGVSc per variant
+        'attributes' column from variant store data
 
     Returns
     -------
     str
         All HGVSc per variant joined
     """
-    unique_hgvs = hgvs_series.dropna().unique()
-    return "|".join(unique_hgvs)
+    all_hgvs = []
+    # extract NM_*:c.* value from a string of pipe-separated values
+    pattern = re.compile(r"(?<=\|)(NM_.[^\|]*:c\..*?)(?=\|)")
+
+    for attr_string in hgvs_series.dropna():
+        if isinstance(attr_string, str):
+            all_hgvs += pattern.findall(attr_string)
+    uniq_hgvs = list(set([x for x in all_hgvs if x]))
+
+    return "|".join(uniq_hgvs)
 
 
 def format_total_classifications(classifications) -> str:
@@ -245,12 +279,12 @@ def sort_aggregated_data(aggregated_df) -> pd.DataFrame:
     aggregated_df["CHROM"] = pd.Categorical(
         aggregated_df["CHROM"], categories=chromosome_order, ordered=True
     )
-    aggregated_df = aggregated_df.sort_values(by=["CHROM", "POS"])
+    aggregated_df = aggregated_df.sort_values(by=["CHROM", "POS", "REF", "ALT"])
 
     return aggregated_df
 
 
-def aggregate_uniq_vars(probeset_df, probeset, aggregated_database) -> pd.DataFrame:
+def aggregate_uniq_vars(db, probeset_df, aggregated_database) -> pd.DataFrame:
     """
     Aggregate data for each unique variant
     Similaritites to create_vcf_from_inca_csv.py by Raymond Miles
@@ -269,56 +303,63 @@ def aggregate_uniq_vars(probeset_df, probeset, aggregated_database) -> pd.DataFr
     pd.DataFrame
         Dataframe of aggregated data
     """
-    probeset_df.loc[:, "germline_classification"] = probeset_df[
-        "germline_classification"
-    ].str.replace(" ", "_")
-    probeset_df.loc[:, "oncogenicity_classification"] = probeset_df[
-        "oncogenicity_classification"
-    ].str.replace(" ", "_")
-    probeset_df.loc[:, "CHROM"] = probeset_df["CHROM"].str.replace(" ", "")
-    probeset_df = probeset_df.dropna(subset=["date_last_evaluated"])
 
     aggregated_data = []
-    grouped = probeset_df.groupby(
-        ["CHROM", "POS", "REF", "ALT"]
-    )
+    grouped = probeset_df.groupby(["CHROM", "POS", "REF", "ALT"])
+
+    if db == 'variant_store':
+        uniq_sample_count = len(probeset_df["sampleid"].dropna().unique())
 
     for _, group in grouped:
-        latest_entry = get_latest_entry(group)
-        latest_germline = latest_entry["germline_classification"]
-        latest_oncogenicity = latest_entry["oncogenicity_classification"]
-        latest_date = latest_entry["date_last_evaluated"]
-        latest_sample_id = latest_entry["specimen_id"]
-        hgvs = aggregate_hgvs(group["hgvsc"])
-        total_germline = format_total_classifications(
-            group["germline_classification"]
-        )
-        total_oncogenicity = format_total_classifications(
-            group["oncogenicity_classification"]
-        )
+        if db == 'inca':
+            latest_entry = get_latest_entry(group)
+            latest_germline = latest_entry["germline_classification"]
+            latest_oncogenicity = latest_entry["oncogenicity_classification"]
+            latest_date = latest_entry["date_last_evaluated"]
+            latest_sample_id = latest_entry["specimen_id"]
+            hgvs = "|".join(group["hgvsc"].dropna().unique())
+            total_germline = format_total_classifications(
+                group["germline_classification"]
+            )
+            total_oncogenicity = format_total_classifications(
+                group["oncogenicity_classification"]
+            )
 
-        aggregated_data.append(
-            {
-                "CHROM": latest_entry["CHROM"],
-                "POS": latest_entry["POS"],
-                "REF": latest_entry["REF"],
-                "ALT": latest_entry["ALT"],
-                "latest_germline": latest_germline,
-                "latest_oncogenicity": latest_oncogenicity,
-                "latest_date": latest_date,
-                "latest_sample_id": latest_sample_id,
-                "total_germline": total_germline,
-                "total_oncogenicity": total_oncogenicity,
-                "aggregated_hgvs": hgvs,
-            }
-        )
+            aggregated_data.append(
+                {
+                    "CHROM": latest_entry["CHROM"],
+                    "POS": latest_entry["POS"],
+                    "REF": latest_entry["REF"],
+                    "ALT": latest_entry["ALT"],
+                    "latest_germline": latest_germline,
+                    "latest_oncogenicity": latest_oncogenicity,
+                    "latest_date": latest_date,
+                    "latest_sample_id": latest_sample_id,
+                    "total_germline": total_germline,
+                    "total_oncogenicity": total_oncogenicity,
+                    "aggregated_hgvs": hgvs,
+                }
+            )
+
+        else:
+            hgvs = aggregate_hgvs(group['attributes'])
+
+            aggregated_data.append(
+                {
+                    "CHROM": group['CHROM'].unique()[0],
+                    "POS": group['POS'].unique()[0],
+                    "REF": group['REF'].unique()[0],
+                    "ALT": group['ALT'].unique()[0],
+                    "aggregated_hgvs": hgvs,
+                    "variant_sample_count": len(group['sampleid'].dropna().unique()),
+                    "total_samples": uniq_sample_count,
+                }
+            )
 
     aggregated_df = pd.DataFrame(aggregated_data)
-
+    VARIANT_ERROR = "There are no variants to process. Please check inputs and filters."
     if aggregated_df.empty:
-        raise AssertionError(
-            "There are no variants to process. Please check inputs and filters."
-        )
+        raise AssertionError(VARIANT_ERROR)
 
     aggregated_df["POS"] = aggregated_df["POS"].astype("Int64")
     aggregated_df = sort_aggregated_data(aggregated_df)
@@ -349,7 +390,7 @@ def intialise_vcf(aggregated_df, minimal_vcf) -> None:
         vcf_file.write("\n".join(vcf_lines) + "\n")
 
 
-def write_vcf_header(genome_build, header_filename) -> None:
+def write_vcf_header(db, genome_build, header_filename) -> None:
     """
     Write VCF header by populating INFO fields and specifying contigs
 
@@ -360,8 +401,13 @@ def write_vcf_header(genome_build, header_filename) -> None:
     header_filename : str
         Output filename for the VCF header
     """
+    if db == 'inca':
+        config_field = config.INFO_FIELDS_INCA
+    else:
+        config_field = config.INFO_FIELDS_VARSTORE
+
     with open(header_filename, "w") as header_vcf:
-        for field_info in config.INFO_FIELDS.values():
+        for field_info in config_field.values():
             info_line = f'##INFO=<ID={field_info["id"]},Number={field_info["number"]},Type={field_info["type"]},Description="{field_info["description"]}">\n'
             header_vcf.write(info_line)
 
@@ -385,7 +431,7 @@ def index_file(file) -> None:
 
 
 def bcftools_annotate_vcf(
-    aggregated_database, minimal_vcf, header_filename, output_filename
+    db, aggregated_database, minimal_vcf, header_filename, output_filename
 ) -> None:
     """
     Run bcftools annotate to annotate the minimal VCF with the aggregated info
@@ -401,8 +447,14 @@ def bcftools_annotate_vcf(
     output_filename : str
         Output filename for annotated VCF
     """
+    if db == 'inca':
+        config_field = config.INFO_FIELDS_INCA
+    else:
+        config_field = config.INFO_FIELDS_VARSTORE
+
+    info_fields = ",".join(item["id"] for item in config_field.values())
+
     # Run bcftools annotate with pysam
-    info_fields = ",".join(item["id"] for item in config.INFO_FIELDS.values())
     annotate_output = pysam.bcftools.annotate(
         "-a",
         f"{aggregated_database}.gz",
@@ -473,28 +525,63 @@ def upload_output_file(outfile) -> None:
     return dxpy.dxlink(url_file)
 
 
+def create_output_filename(database, genome_build, probeset):
+    """
+    Generate an output filename if none is provided
+
+    Parameters
+    ----------
+    database : str
+        inca or variant_store
+    genome_build : str
+        GRCh37 or GRCh38
+    probeset : str
+        germline or somatic
+
+    Returns
+    -------
+    str
+        Name for output VCF
+    """
+    date = datetime.today().strftime("%y%m%d")
+    output = f"{date}_{database}_{genome_build}"
+
+    if probeset:
+        output += f"_{probeset}"
+
+    output += ".vcf"
+
+    return output
+
+
 @dxpy.entry_point("main")
-def main(input_file: str, output_filename: str, genome_build: str, probeset: str):
+def main(database: str, input_file: str, output_filename: str, genome_build: str, probeset: str):
+
     if os.path.exists("/home/dnanexus"):
         input_file = download_input_file(input_file)
 
-    probeset = [x.strip().lower() for x in probeset.split(",")]
+    OUTPUT_FILENAME_ERROR = "Output filename must end with '.vcf'"
+    if not output_filename:
+        output_filename = create_output_filename(database, genome_build, probeset)
+    elif not output_filename.endswith(".vcf"):
+        raise ValueError(OUTPUT_FILENAME_ERROR)
+
     minimal_vcf = "minimal_vcf.vcf"
     header_filename = "header.vcf"
-    aggregated_database = f"{'_'.join(probeset)}_aggregated_database.tsv"
+    aggregated_database = "aggregated_database.tsv"
 
-    if not output_filename.endswith(".vcf"):
-        raise ValueError("Output filename must end with '.vcf'")
-
-    cleaned_csv = clean_csv(input_file, genome_build)
-    probeset_df = filter_probeset(cleaned_csv, probeset, genome_build)
-    aggregated_df = aggregate_uniq_vars(probeset_df, probeset, aggregated_database)
+    initial_df = clean_csv(database, input_file, genome_build)
+    if database == 'inca':
+        filtered_df = filter_probeset(initial_df, probeset, genome_build)
+    else:
+        filtered_df = initial_df
+    aggregated_df = aggregate_uniq_vars(database, filtered_df, aggregated_database)
 
     intialise_vcf(aggregated_df, minimal_vcf)
-    write_vcf_header(genome_build, header_filename)
+    write_vcf_header(database, genome_build, header_filename)
     index_file(aggregated_database)
     bcftools_annotate_vcf(
-        aggregated_database, minimal_vcf, header_filename, output_filename
+        database, aggregated_database, minimal_vcf, header_filename, output_filename
     )
 
     if os.path.exists("/home/dnanexus"):
@@ -509,4 +596,4 @@ if os.path.exists("/home/dnanexus"):
     dxpy.run()
 elif __name__ == "__main__":
     args = parse_args()
-    main(args.input_file, args.output_filename, args.genome_build, args.probeset)
+    main(args.database, args.input_file, args.output_filename, args.genome_build, args.probeset)
