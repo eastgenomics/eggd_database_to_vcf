@@ -1,9 +1,14 @@
+"""
+Takes a CSV file exported from inca or a variant store, aggregates data for
+unique variants, and produces a VCF compatible with VEP.
+"""
+
 from glob import glob
 import os
 import subprocess
 
+# if running in DNAnexus
 if os.path.exists("/home/dnanexus"):
-    # running in DNAnexus
     subprocess.check_call(
         ["pip", "install", "--no-index", "--no-deps"] + glob("packages/*")
     )
@@ -21,6 +26,10 @@ from utils.generate_output import (
     write_vcf_header,
     index_file,
     bcftools_annotate_vcf
+)
+from utils.dxpy_functions import (
+    download_input_file,
+    upload_output_file
 )
 
 
@@ -80,61 +89,6 @@ def parse_args() -> argparse.Namespace:
     args = parser.parse_args()
 
     return args
-
-
-def download_input_file(remote_file) -> str:
-    """
-    Download given input file with same name as file in project
-    Function from vcf_qc.py from eggd_vcf_qc
-
-    Parameters
-    ----------
-    remote_file : dict
-        DNAnexus input file
-
-    Returns
-    -------
-    str
-        name of locally downloaded file
-    """
-    local_name = dxpy.describe(remote_file).get("name")
-    dxpy.bindings.dxfile_functions.download_dxfile(
-        dxid=remote_file, filename=local_name
-    )
-
-    return local_name
-
-
-def upload_output_file(outfile) -> None:
-    """
-    Upload output file to set folder in current project
-    Function from vcf_qc.py from eggd_vcf_qc
-
-    Parameters
-    ----------
-    outfile : str
-        name of file to upload
-    """
-    output_project = os.environ.get("DX_PROJECT_CONTEXT_ID")
-    output_folder = (
-        dxpy.bindings.dxjob.DXJob(os.environ.get("DX_JOB_ID"))
-        .describe()
-        .get("folder", "/")
-    )
-    print(f"\nUploading {outfile} to {output_project}:{output_folder}")
-
-    dxpy.set_workspace_id(output_project)
-    dxpy.api.project_new_folder(
-        output_project, input_params={"folder": output_folder, "parents": True}
-    )
-
-    url_file = dxpy.upload_local_file(
-        filename=outfile,
-        folder=output_folder,
-        wait_on_close=True,
-    )
-
-    return dxpy.dxlink(url_file)
 
 
 @dxpy.entry_point("main")
