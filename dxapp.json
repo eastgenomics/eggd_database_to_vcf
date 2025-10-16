@@ -10,6 +10,7 @@
         "label": "Database type",
         "class": "string",
         "optional": false,
+        "choices": ["inca", "variant_store"],
         "help": "Type of database (inca or variant_store)"
       },
       {
@@ -27,6 +28,7 @@
         "label": "Optional output filename",
         "class": "string",
         "optional": true,
+        "default": "",
         "help": "Name for output VCF file"
       },
       {
@@ -34,6 +36,7 @@
         "label": "Genome build",
         "class": "string",
         "optional": false,
+        "choices": ["GRCh37", "GRCh38"],
         "help": "Genome build for header annotation"
       },
       {
@@ -41,6 +44,7 @@
         "label": "Probeset",
         "class": "string",
         "optional": true,
+        "default": "",
         "help": "Probeset to optionally filter inca variants by (germline or somatic)"
       }
     ],
