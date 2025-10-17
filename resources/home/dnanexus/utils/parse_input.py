@@ -10,7 +10,6 @@ import pandas as pd
 def clean_csv(database, input_file, genome_build) -> pd.DataFrame:
     """
     Clean up the input CSV by:
-    - Convert to tab separated instead of comma
     - Rename to CHROM, POS, REF, ALT
     - Move CHROM, POS, REF, ALT to be first 4 columns
     - Remove all new lines or tabs within cells
@@ -72,7 +71,8 @@ def clean_csv(database, input_file, genome_build) -> pd.DataFrame:
         + [col for col in df.columns if col not in list(columns.values())]
     ]
     df = df.applymap(
-        lambda x: x.replace("\n", " ").strip() if isinstance(x, str) else x
+        lambda x: x.replace("\n", " ").replace("\t", " ").strip()
+        if isinstance(x, str) else x
     )
 
     return df
@@ -226,8 +226,6 @@ def aggregate_uniq_vars(db, probeset_df, aggregated_database) -> pd.DataFrame:
     ----------
     probeset_df : pd.DataFrame
         Dataframe filtered by probeset
-    probeset : str
-        Germline or somatic choice
     aggregated_database : str
         Output filename for aggregated data
 

@@ -96,8 +96,13 @@ def index_file(file) -> None:
     file : str
         File to bgzip and index
     """
-    pysam.tabix_compress(f"{file}", f"{file}.gz")
-    pysam.tabix_index(f"{file}.gz", seq_col=0, start_col=1, end_col=1)
+    pysam.tabix_compress(file, f"{file}.gz", force=True)
+
+    # handle vcf and tsv files differently
+    if file.endswith(".vcf"):
+        pysam.tabix_index(f"{file}.gz", preset="vcf", force=True)
+    else:
+        pysam.tabix_index(f"{file}.gz", seq_col=0, start_col=1, end_col=1, force=True)
 
 
 def bcftools_annotate_vcf(
