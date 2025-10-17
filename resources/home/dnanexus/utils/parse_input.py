@@ -224,6 +224,8 @@ def aggregate_uniq_vars(db, probeset_df, aggregated_database) -> pd.DataFrame:
 
     Parameters
     ----------
+    db : str
+        Type of database (inca or variant_store)
     probeset_df : pd.DataFrame
         Dataframe filtered by probeset
     aggregated_database : str

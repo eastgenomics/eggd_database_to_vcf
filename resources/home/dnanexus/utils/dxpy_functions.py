@@ -13,8 +13,8 @@ def download_input_file(remote_file) -> str:
 
     Parameters
     ----------
-    remote_file : dict
-        DNAnexus input file
+    remote_file : str
+        Name or ID of input CSV file in DNAnexus
 
     Returns
     -------

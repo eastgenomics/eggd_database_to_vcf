@@ -66,6 +66,8 @@ def write_vcf_header(db, genome_build, header_filename) -> None:
 
     Parameters
     ----------
+    db : str
+        Type of database (inca or variant_store)
     genome_build : str
         Genome build to specify contigs in header
     header_filename : str
@@ -113,6 +115,8 @@ def bcftools_annotate_vcf(
 
     Parameters
     ----------
+    db : str
+        Type of database (inca or variant_store)
     aggregated_database : str
         Output filename of aggregated database
     minimal_vcf : str

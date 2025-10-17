@@ -51,7 +51,7 @@
     "outputSpec": [
       {
         "name": "output_vcf",
-        "label": "Output VCF of aggregated info from inca database CSV",
+        "label": "Output VCF of aggregated info from database CSV",
         "class": "file",
         "patterns": [
           "*.vcf.gz"

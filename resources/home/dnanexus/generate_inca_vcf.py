@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Takes a CSV file exported from inca or a variant store, aggregates data for
 unique variants, and produces a VCF compatible with VEP.
