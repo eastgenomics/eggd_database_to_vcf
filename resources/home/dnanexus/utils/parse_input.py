@@ -39,9 +39,9 @@ def clean_csv(database, input_file, genome_build) -> pd.DataFrame:
         df["date_last_evaluated"] = pd.to_datetime(
             df["date_last_evaluated"], errors="coerce")
         df.loc[:, "germline_classification"] = df[
-            "germline_classification"].str.replace(" ", "_")
+            "germline_classification"].str.replace(" ", "_", regex=False)
         df.loc[:, "oncogenicity_classification"] = df[
-            "oncogenicity_classification"].str.replace(" ", "_")
+            "oncogenicity_classification"].str.replace(" ", "_", regex=False)
 
         columns = {
             "chromosome": "CHROM",
@@ -50,6 +50,8 @@ def clean_csv(database, input_file, genome_build) -> pd.DataFrame:
             "alternate_allele": "ALT",
         }
         if genome_build == "GRCh38":
+            if 'start_38' not in df.columns:
+                raise KeyError('Missing "start_38" column for GRCh38 INCA export')
             columns["start_38"] = columns.pop("start")
 
     else:
@@ -164,7 +166,7 @@ def aggregate_hgvs(hgvs_series) -> str:
     for attr_string in hgvs_series.dropna():
         if isinstance(attr_string, str):
             all_hgvs += pattern.findall(attr_string)
-    uniq_hgvs = list(set([x for x in all_hgvs if x]))
+    uniq_hgvs = sorted({x for x in all_hgvs if x})
 
     return "|".join(uniq_hgvs)
 
