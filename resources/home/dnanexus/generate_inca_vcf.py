@@ -6,11 +6,12 @@ unique variants, and produces a VCF compatible with VEP.
 from glob import glob
 import os
 import subprocess
+import sys
 
 # if running in DNAnexus
 if os.path.exists("/home/dnanexus"):
     subprocess.check_call(
-        ["pip", "install", "--no-index", "--no-deps"] + glob("packages/*")
+        [sys.executable, "-m", "pip", "install", "--no-index", "--no-deps"] + glob("packages/*")
     )
 
 import argparse
