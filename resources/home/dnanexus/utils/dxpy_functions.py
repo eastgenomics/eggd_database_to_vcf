@@ -29,7 +29,7 @@ def download_input_file(remote_file) -> str:
     return local_name
 
 
-def upload_output_file(outfile) -> None:
+def upload_output_file(outfile) -> dict:
     """
     Upload output file to set folder in current project
     Function from vcf_qc.py from eggd_vcf_qc
