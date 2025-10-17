@@ -250,7 +250,7 @@ def aggregate_uniq_vars(db, probeset_df, aggregated_database) -> pd.DataFrame:
             latest_oncogenicity = latest_entry["oncogenicity_classification"]
             latest_date = latest_entry["date_last_evaluated"]
             latest_sample_id = latest_entry["specimen_id"]
-            hgvs = "|".join(group["hgvsc"].dropna().unique())
+            hgvs = "|".join(sorted(group["hgvsc"].dropna().unique()))
             total_germline = format_total_classifications(
                 group["germline_classification"]
             )

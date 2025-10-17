@@ -75,8 +75,10 @@ def write_vcf_header(db, genome_build, header_filename) -> None:
     """
     if db == 'inca':
         config_field = config.INFO_FIELDS_INCA
-    else:
+    elif db == "variant_store":
         config_field = config.INFO_FIELDS_VARSTORE
+    else:
+        raise ValueError(f"Unsupported database: {db}")
 
     with open(header_filename, "w") as header_vcf:
         for field_info in config_field.values():
@@ -131,19 +133,17 @@ def bcftools_annotate_vcf(
     else:
         config_field = config.INFO_FIELDS_VARSTORE
 
-    info_fields = ",".join(item["id"] for item in config_field.values())
+    info_fields = ",".join(f'INFO/{item["id"]}' for item in config_field.values())
 
     # Run bcftools annotate with pysam
-    annotate_output = pysam.bcftools.annotate(
-        "-a",
-        f"{aggregated_database}.gz",
-        "-h",
-        f"{header_filename}",
-        "-c",
-        f"CHROM,POS,REF,ALT,{info_fields}",
+    pysam.bcftools.annotate(
+        "-a", f"{aggregated_database}.gz",
+        "-h", f"{header_filename}",
+        "-c", f"CHROM,POS,REF,ALT,{info_fields}",
+        "-O", "v",
+        "-o", f"{output_filename}",
         f"{minimal_vcf}",
+        catch_stdout=False
     )
-    with open(output_filename, "w") as f:
-        f.write(annotate_output)
 
     index_file(output_filename)
