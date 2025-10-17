@@ -9,7 +9,7 @@ import pysam
 import pysam.bcftools
 
 
-def create_output_filename(database, genome_build, probeset):
+def create_output_filename(database, genome_build, probeset) -> str:
     """
     Generate an output filename if none is provided
 
@@ -38,23 +38,22 @@ def create_output_filename(database, genome_build, probeset):
     return output
 
 
-def initialise_vcf(aggregated_df, minimal_vcf) -> None:
+def initialise_vcf(df, minimal_vcf) -> None:
     """
-    Initialise minimal VCF with CHROM, POS, ID, REF, ALT with minimal header
+    Initialise minimal VCF with CHROM, POS, REF, ALT with minimal header
 
     Parameters
     ----------
-    aggregated_df : pd.DataFrame
+    df : pd.DataFrame
         Dataframe of aggregated data
     minimal_vcf : str
         Output filename for the minimal VCF
     """
-    vcf_lines = []
-    for _, row in aggregated_df.iterrows():
-        vcf_line = (
-            f"{row['CHROM']}\t{row['POS']}\t.\t{row['REF']}\t{row['ALT']}\t.\t.\t."
-        )
-        vcf_lines.append(vcf_line)
+    vcf_lines = [
+        f"{chrom}\t{pos}\t.\t{ref}\t{alt}\t.\t.\t."
+        for chrom,pos,ref,alt
+        in zip(df['CHROM'], df['POS'], df['REF'], df['ALT'])
+        ]
 
     with open(minimal_vcf, "w") as vcf_file:
         vcf_file.write(config.MINIMAL_VCF_HEADER)
