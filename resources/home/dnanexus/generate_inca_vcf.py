@@ -20,11 +20,18 @@ import pysam.bcftools
 
 def parse_args() -> argparse.Namespace:
     """
-    Parse command line arguments
-    Returns
-    ----------
-    args : Namespace
-        Namespace of passed command line argument inputs
+    Parse and validate command-line arguments for the VCF generation workflow.
+    
+    Parameters:
+        None
+    
+    Returns:
+        args (argparse.Namespace): Parsed command-line arguments with attributes:
+            - database (str): Source database type, either "inca" or "variant_store".
+            - input_file (str): Path to the CSV export of the variant database.
+            - output_filename (str or None): Desired output VCF filename, if provided.
+            - genome_build (str): Reference genome build, either "GRCh37" or "GRCh38".
+            - probeset (str or None): Optional probeset filter for inca data, either "germline" or "somatic".
     """
     parser = argparse.ArgumentParser(
         description="Create a VCF from a variant database CSV export file"
@@ -78,25 +85,17 @@ def parse_args() -> argparse.Namespace:
 
 def clean_csv(database, input_file, genome_build) -> pd.DataFrame:
     """
-    Clean up the input CSV by:
-    - Convert to tab separated instead of comma
-    - Rename to CHROM, POS, REF, ALT
-    - Move CHROM, POS, REF, ALT to be first 4 columns
-    - Remove all new lines or tabs within cells
-
-    Parameters
-    ----------
-    database : str
-        inca or variant_store, affects column names
-    input_file : str
-        Filepath to input CSV
-    genome_build : str
-        Genome build to specify columns
-
-    Returns
-    -------
-    pd.DataFrame
-        Dataframe with cleaned up data
+    Normalize and clean the input CSV into a standardized DataFrame suitable for downstream VCF generation.
+    
+    Performs database-specific normalizations, renames and reorders key columns so `CHROM`, `POS`, `REF`, `ALT` are the first four columns, and cleans string cells by removing internal newlines and trimming whitespace.
+    
+    Parameters:
+        database (str): Source database type; must be "inca" or "variant_store". Determines column mappings and database-specific normalizations.
+        input_file (str): Path to the input CSV file.
+        genome_build (str): Genome build indicator ("GRCh37" or "GRCh38"); for "GRCh38" uses the build-specific start column when available.
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame with `CHROM`, `POS`, `REF`, `ALT` as the first four columns, other original columns preserved; string cells have internal newlines removed and are trimmed. For "inca", `date_last_evaluated` is parsed to datetimes and classification fields have spaces replaced with underscores. For "variant_store", square brackets are stripped from the `alternatealleles` values.
     """
     df = pd.read_csv(
         input_file,
@@ -147,21 +146,23 @@ def clean_csv(database, input_file, genome_build) -> pd.DataFrame:
 
 def filter_probeset(cleaned_csv, probeset, genome_build) -> pd.DataFrame:
     """
-    Filter cleaned data to interpreted variants for specified germline/somatic probesets
-
-    Parameters
-    ----------
-    cleaned_csv : pd.DataFrame
-        Dataframe with cleaned up data
-    probeset : str
-        Germline or somatic choice
-    genome_build : str
-        Genome build to filter
-
-    Returns
-    -------
-    pd.DataFrame
-        Dataframe filtered by probeset
+    Filter a cleaned DataFrame to interpreted variants matching the requested genome build and optional probeset.
+    
+    Parameters:
+        cleaned_csv (pd.DataFrame): Cleaned variant table containing at least the columns
+            "interpreted", "germline_classification", "oncogenicity_classification",
+            "ref_genome", "ref_genome_38", "allele_origin", and "date_last_evaluated".
+        probeset (str | None): If provided, filter rows where `allele_origin` equals this value (case-insensitive).
+        genome_build (str): "GRCh37" or "GRCh38" determining which reference column to use
+            ("ref_genome" for GRCh37, "ref_genome_38" for GRCh38).
+    
+    Returns:
+        pd.DataFrame: Rows where `interpreted` is "yes", matching the specified genome build
+        and probeset (if given), with duplicates removed and only rows that have a
+        non-null `date_last_evaluated`.
+    
+    Raises:
+        ValueError: If any row has both `germline_classification` and `oncogenicity_classification` null.
     """
     interpreted_df = cleaned_csv[cleaned_csv["interpreted"].str.lower() == "yes"]
     CLASSIFICATION_ERROR = "Both germline and oncogenicity classification are null in at least one row."
@@ -194,17 +195,13 @@ def filter_probeset(cleaned_csv, probeset, genome_build) -> pd.DataFrame:
 
 def get_latest_entry(sub_df) -> pd.Series:
     """
-    Get latest entry by date
-
-    Parameters
-    ----------
-    sub_df : pd.DataFrame
-        Dataframe per group of CHROM, POS, REF, ALT
-
-    Returns
-    -------
-    pd.Series
-        Latest entry per group by date
+    Select the row with the most recent `date_last_evaluated` from a grouped DataFrame.
+    
+    Parameters:
+        sub_df (pd.DataFrame): DataFrame representing a single group of variants (CHROM, POS, REF, ALT). Must contain a `date_last_evaluated` column.
+    
+    Returns:
+        pd.Series: The row with the maximum `date_last_evaluated`.
     """
     latest_idx = sub_df["date_last_evaluated"].idxmax()
     latest_entry = sub_df.loc[latest_idx]
@@ -213,18 +210,13 @@ def get_latest_entry(sub_df) -> pd.Series:
 
 def aggregate_hgvs(hgvs_series) -> str:
     """
-    Given the 'attributes' column for one variant group from variant store
-    data, extract all HGVSc from each row and combine into a single list.
-
-    Parameters
-    ----------
-    hgvs_series : pd.Series
-        'attributes' column from variant store data
-
-    Returns
-    -------
-    str
-        All HGVSc per variant joined
+    Aggregate NM_*:c.* HGVSc entries from a series of variant-store attribute strings into a single pipe-separated string.
+    
+    Parameters:
+        hgvs_series (pd.Series): Series of attribute strings from variant_store rows; non-string and missing values are ignored.
+    
+    Returns:
+        str: Unique HGVSc values joined with "|" (empty string if none found).
     """
     all_hgvs = []
     # extract NM_*:c.* value from a string of pipe-separated values
@@ -240,18 +232,15 @@ def aggregate_hgvs(hgvs_series) -> str:
 
 def format_total_classifications(classifications) -> str:
     """
-    Counts all classifications, including the latest classification.
-    Returns classifications in the format: classification(count)|classification(count)
-
-    Parameters
-    ----------
-    classifications : pd.Series
-        Germline or somatic classifications per variant
-
-    Returns
-    -------
-    str
-        All classifications per variant joined
+    Format classification counts as a pipe-separated string.
+    
+    Counts occurrences of each classification in the provided pandas Series and returns them as `classification(count)` entries joined by `|`.
+    
+    Parameters:
+        classifications (pd.Series): Series of classification labels (e.g., germline or oncogenicity).
+    
+    Returns:
+        str: Formatted string of classifications with counts, e.g. "Pathogenic(3)|Likely_pathogenic(1)".
     """
     counts = classifications.value_counts()
     formatted_counts = [
@@ -262,17 +251,13 @@ def format_total_classifications(classifications) -> str:
 
 def sort_aggregated_data(aggregated_df) -> pd.DataFrame:
     """
-    Sort aggregate data
-
-    Parameters
-    ----------
-    aggregated_df : pd.DataFrame
-        Dataframe of aggregated data
-
-    Returns
-    -------
-    pd.DataFrame
-        Dataframe sorted by CHROM and POS
+    Order chromosomes as 1–22, X, Y and return the DataFrame sorted by CHROM, POS, REF, and ALT.
+    
+    Parameters:
+        aggregated_df (pd.DataFrame): Aggregated variant data containing at least the columns `CHROM`, `POS`, `REF`, and `ALT`.
+    
+    Returns:
+        pd.DataFrame: The input DataFrame with `CHROM` coerced to the ordered chromosome sequence 1–22, X, Y and rows sorted by `CHROM`, `POS`, `REF`, then `ALT`.
     """
     # Define chromosome order: numeric first, then X and Y and sort
     chromosome_order = [str(i) for i in range(1, 23)] + ["X", "Y"]
@@ -286,22 +271,20 @@ def sort_aggregated_data(aggregated_df) -> pd.DataFrame:
 
 def aggregate_uniq_vars(db, probeset_df, aggregated_database) -> pd.DataFrame:
     """
-    Aggregate data for each unique variant
-    Similaritites to create_vcf_from_inca_csv.py by Raymond Miles
-
-    Parameters
-    ----------
-    probeset_df : pd.DataFrame
-        Dataframe filtered by probeset
-    probeset : str
-        Germline or somatic choice
-    aggregated_database : str
-        Output filename for aggregated data
-
-    Returns
-    -------
-    pd.DataFrame
-        Dataframe of aggregated data
+    Aggregate per-variant records into a single-row summary table and write the result to a tab-separated file.
+    
+    For db == "inca", each variant row contains the latest germline and oncogenicity classifications, the latest evaluation date and specimen id, counts of classification occurrences, and aggregated HGVSc strings. For db == "variant_store", each variant row contains aggregated HGVSc extracted from the attributes field, the number of samples with that variant in the group, and the total number of unique samples across the input.
+    
+    Parameters:
+        db (str): Source database type; expected values are "inca" or "variant_store" and determine the aggregation schema.
+        probeset_df (pd.DataFrame): DataFrame of variant records already filtered by probeset/genome build.
+        aggregated_database (str): Path to write the aggregated TSV output (no header, tab-separated).
+    
+    Returns:
+        pd.DataFrame: Aggregated DataFrame with one row per unique (CHROM, POS, REF, ALT) and columns appropriate to the selected `db`.
+    
+    Raises:
+        AssertionError: If no variants are produced after aggregation.
     """
 
     aggregated_data = []
@@ -369,14 +352,13 @@ def aggregate_uniq_vars(db, probeset_df, aggregated_database) -> pd.DataFrame:
 
 def intialise_vcf(aggregated_df, minimal_vcf) -> None:
     """
-    Initialise minimal VCF with CHROM, POS, ID, REF, ALT with minimal header
-
-    Parameters
-    ----------
-    aggregated_df : pd.DataFrame
-        Dataframe of aggregated data
-    minimal_vcf : str
-        Output filename for the minimal VCF
+    Create a minimal VCF file containing one record per row from the aggregated DataFrame.
+    
+    Each output record contains CHROM, POS, ID ('.'), REF, ALT, QUAL ('.'), FILTER ('.'), and INFO ('.'). The file is written to `minimal_vcf` and prefixed with the configured minimal VCF header.
+    
+    Parameters:
+        aggregated_df (pd.DataFrame): Aggregated variant rows; must include columns 'CHROM', 'POS', 'REF', and 'ALT'.
+        minimal_vcf (str): Path to the output minimal VCF file.
     """
     vcf_lines = []
     for _, row in aggregated_df.iterrows():
@@ -392,14 +374,12 @@ def intialise_vcf(aggregated_df, minimal_vcf) -> None:
 
 def write_vcf_header(db, genome_build, header_filename) -> None:
     """
-    Write VCF header by populating INFO fields and specifying contigs
-
-    Parameters
-    ----------
-    genome_build : str
-        Genome build to specify contigs in header
-    header_filename : str
-        Output filename for the VCF header
+    Write a VCF header file containing INFO field definitions and contig records for the specified database and genome build.
+    
+    Parameters:
+        db (str): Database identifier; expected values are 'inca' or 'variant_store' and determine which INFO field definitions are used.
+        genome_build (str): Genome build identifier, either 'GRCh37' or 'GRCh38', used to select the contig records written to the header.
+        header_filename (str): Path to the output header file to create.
     """
     if db == 'inca':
         config_field = config.INFO_FIELDS_INCA
@@ -434,18 +414,14 @@ def bcftools_annotate_vcf(
     db, aggregated_database, minimal_vcf, header_filename, output_filename
 ) -> None:
     """
-    Run bcftools annotate to annotate the minimal VCF with the aggregated info
-
-    Parameters
-    ----------
-    aggregated_database : str
-        Output filename of aggregated database
-    minimal_vcf : str
-        Output filename for the minimal VCF
-    header_filename : str
-        Output filename for the VCF header
-    output_filename : str
-        Output filename for annotated VCF
+    Annotate a minimal VCF with aggregated INFO fields using bcftools and write the annotated VCF.
+    
+    Parameters:
+        db (str): Database type determining which INFO field definitions to use; expected values are "inca" or "variant_store".
+        aggregated_database (str): Path prefix to the aggregated tab-separated file (the function will use `{aggregated_database}.gz` for annotation).
+        minimal_vcf (str): Path to the minimal VCF to be annotated.
+        header_filename (str): Path to a file containing VCF header lines (INFO and contig definitions) to provide to bcftools.
+        output_filename (str): Path where the annotated VCF will be written; the file will be created/overwritten and then indexed.
     """
     if db == 'inca':
         config_field = config.INFO_FIELDS_INCA
@@ -495,13 +471,13 @@ def download_input_file(remote_file) -> str:
 
 def upload_output_file(outfile) -> None:
     """
-    Upload output file to set folder in current project
-    Function from vcf_qc.py from eggd_vcf_qc
-
-    Parameters
-    ----------
-    outfile : str
-        name of file to upload
+    Upload a local file to the current DNAnexus project's job output folder and return a DNAnexus link to the uploaded file.
+    
+    Parameters:
+        outfile (str): Path to the local file to upload.
+    
+    Returns:
+        str: A DNAnexus link (dx://...) pointing to the uploaded file.
     """
     output_project = os.environ.get("DX_PROJECT_CONTEXT_ID")
     output_folder = (
@@ -557,6 +533,24 @@ def create_output_filename(database, genome_build, probeset):
 @dxpy.entry_point("main")
 def main(database: str, input_file: str, output_filename: str, genome_build: str, probeset: str):
 
+    """
+    Orchestrates the full CSV-to-VCF conversion workflow and produces an annotated VCF.
+    
+    Processes the provided input CSV according to the selected `database` and `genome_build`, optionally filters by `probeset`, aggregates unique variants, constructs a minimal VCF, writes a VCF header, annotates the VCF with the aggregated data, and indexes outputs. Validates or generates `output_filename` and, when running in DNAnexus, downloads the input and uploads the final VCF and its index.
+    
+    Parameters:
+        database (str): Source database type; expected values are "inca" or "variant_store".
+        input_file (str): Path or remote identifier for the input CSV.
+        output_filename (str): Desired output VCF filename; if empty a default is created. Must end with ".vcf".
+        genome_build (str): Genome build identifier, e.g. "GRCh37" or "GRCh38".
+        probeset (str): Optional probeset filter, e.g. "germline" or "somatic"; used when `database` is "inca".
+    
+    Returns:
+        dict: When running inside DNAnexus, returns a mapping with keys "output_vcf" and "output_index" containing DNAnexus links to the uploaded VCF and its index. Otherwise returns `None`.
+    
+    Raises:
+        ValueError: If `output_filename` is provided but does not end with ".vcf".
+    """
     if os.path.exists("/home/dnanexus"):
         input_file = download_input_file(input_file)
 
