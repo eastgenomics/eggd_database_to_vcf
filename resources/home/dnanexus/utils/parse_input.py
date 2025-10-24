@@ -276,6 +276,14 @@ def aggregate_uniq_vars(db, probeset_df, aggregated_database) -> pd.DataFrame:
 
         else:
             hgvs = aggregate_hgvs(group['attributes'])
+            variant_count = len(group['sampleid'].dropna().unique())
+            capture_af = variant_count / uniq_sample_count
+
+            # include sample ids for uncommon variants
+            af_cutoff = 0.01
+            sample_ids = ""
+            if capture_af <= af_cutoff:
+                sample_ids = "|".join(sorted(group["sampleid"].dropna().unique()))
 
             aggregated_data.append(
                 {
@@ -283,9 +291,11 @@ def aggregate_uniq_vars(db, probeset_df, aggregated_database) -> pd.DataFrame:
                     "POS": group['POS'].unique()[0],
                     "REF": group['REF'].unique()[0],
                     "ALT": group['ALT'].unique()[0],
-                    "aggregated_hgvs": hgvs,
-                    "variant_sample_count": len(group['sampleid'].dropna().unique()),
+                    "capture_af": capture_af,
+                    "variant_count": variant_count,
                     "total_samples": uniq_sample_count,
+                    "sample_ids": sample_ids,
+                    "aggregated_hgvs": hgvs,
                 }
             )
 

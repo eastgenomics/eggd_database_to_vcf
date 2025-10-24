@@ -37,21 +37,31 @@ INFO_FIELDS_INCA = {
     }
 
 INFO_FIELDS_VARSTORE = {
+    "capture_af": {
+        "id": "CAPTURE_AF",
+        "number": 1,
+        "type": "Float",
+        "description": "Percentage of samples the variant has been seen in"},
+    "variant_count": {
+        "id": "VARIANT_COUNT",
+        "number": 1,
+        "type": "Integer",
+        "description": "Number of samples the variant has been seen in"},
+    "total_samples": {
+        "id": "TOTAL_SAMPLES",
+        "number": 1,
+        "type": "Integer",
+        "description": "Total number of samples evaluated"},
+    "sample_ids": {
+        "id": "SAMPLE_IDS",
+        "number": 1,
+        "type": "String",
+        "description": "Samples the variant was seen in (if below AF cutoff)"},
     "aggregated_hgvs": {
         "id": "AGGREGATED_HGVS",
         "number": 1,
         "type": "String",
         "description": "Aggregated HGVSc"},
-    "variant_sample_count": {
-        "id": "VARIANT_SAMPLE_COUNT",
-        "number": 1,
-        "type": "String",
-        "description": "Number of samples a specific variant has been seen in"},
-    "total_samples": {
-        "id": "TOTAL_SAMPLES",
-        "number": 1,
-        "type": "String",
-        "description": "Total number of samples in the relevant variant store"}
 }
 
 GRCh37_CONTIG = '''\
