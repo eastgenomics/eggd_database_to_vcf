@@ -248,6 +248,9 @@ def aggregate_uniq_vars(db, threshold_af, probeset_df, aggregated_database) -> p
 
     if db == 'variant_store':
         uniq_sample_count = len(probeset_df["sampleid"].dropna().unique())
+        NO_SAMPLES_ERROR = "sampleid column is empty"
+        if not uniq_sample_count:
+            raise ValueError(NO_SAMPLES_ERROR)
 
     for _, group in grouped:
         if db == 'inca':
