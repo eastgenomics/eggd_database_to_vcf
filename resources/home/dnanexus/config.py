@@ -41,7 +41,7 @@ INFO_FIELDS_VARSTORE = {
         "id": "CAPTURE_AF",
         "number": 1,
         "type": "Float",
-        "description": "Percentage of samples the variant has been seen in"},
+        "description": "Proportion of samples the variant has been seen in"},
     "variant_count": {
         "id": "VARIANT_COUNT",
         "number": 1,

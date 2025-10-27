@@ -34,6 +34,10 @@ def clean_csv(database, input_file, genome_build) -> pd.DataFrame:
         low_memory=False,
     )
 
+    EMPTY_DF_ERROR = "Imported dataframe is empty"
+    if df.empty:
+        raise ValueError(EMPTY_DF_ERROR)
+
     if database == 'inca':
         df["date_last_evaluated"] = pd.to_datetime(
             df["date_last_evaluated"], errors="coerce")
@@ -226,6 +230,8 @@ def aggregate_uniq_vars(db, threshold_af, probeset_df, aggregated_database) -> p
     ----------
     db : str
         Type of database (inca or variant_store)
+    threshold_af : float | None
+        If set, include SAMPLE_IDS when capture_af < threshold_af (variant_store only)
     probeset_df : pd.DataFrame
         Dataframe filtered by probeset
     aggregated_database : str
@@ -242,7 +248,6 @@ def aggregate_uniq_vars(db, threshold_af, probeset_df, aggregated_database) -> p
 
     if db == 'variant_store':
         uniq_sample_count = len(probeset_df["sampleid"].dropna().unique())
-        sample_ids = ""
 
     for _, group in grouped:
         if db == 'inca':
@@ -281,8 +286,10 @@ def aggregate_uniq_vars(db, threshold_af, probeset_df, aggregated_database) -> p
             capture_af = variant_count / uniq_sample_count
 
             # include sample ids if a threshold AF is specified
-            if threshold_af and (capture_af <= threshold_af):
+            if threshold_af and (capture_af < threshold_af):
                 sample_ids = "|".join(sorted(group["sampleid"].dropna().unique()))
+            else:
+                sample_ids = ""
 
             aggregated_data.append(
                 {
