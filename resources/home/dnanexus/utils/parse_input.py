@@ -217,7 +217,7 @@ def sort_aggregated_data(aggregated_df) -> pd.DataFrame:
     return aggregated_df
 
 
-def aggregate_uniq_vars(db, probeset_df, aggregated_database) -> pd.DataFrame:
+def aggregate_uniq_vars(db, threshold_af, probeset_df, aggregated_database) -> pd.DataFrame:
     """
     Aggregate data for each unique variant
     Similaritites to create_vcf_from_inca_csv.py by Raymond Miles
@@ -242,6 +242,7 @@ def aggregate_uniq_vars(db, probeset_df, aggregated_database) -> pd.DataFrame:
 
     if db == 'variant_store':
         uniq_sample_count = len(probeset_df["sampleid"].dropna().unique())
+        sample_ids = ""
 
     for _, group in grouped:
         if db == 'inca':
@@ -274,15 +275,13 @@ def aggregate_uniq_vars(db, probeset_df, aggregated_database) -> pd.DataFrame:
                 }
             )
 
-        else:
+        elif db == 'variant_store':
             hgvs = aggregate_hgvs(group['attributes'])
             variant_count = len(group['sampleid'].dropna().unique())
             capture_af = variant_count / uniq_sample_count
 
-            # include sample ids for uncommon variants
-            af_cutoff = 0.01
-            sample_ids = ""
-            if capture_af <= af_cutoff:
+            # include sample ids if a threshold AF is specified
+            if threshold_af and (capture_af <= threshold_af):
                 sample_ids = "|".join(sorted(group["sampleid"].dropna().unique()))
 
             aggregated_data.append(
