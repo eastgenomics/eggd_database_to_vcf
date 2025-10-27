@@ -88,13 +88,21 @@ def parse_args() -> argparse.Namespace:
         help="Probeset (germline or somatic) to filter inca data on"
     )
 
+    parser.add_argument(
+        "-t",
+        "--threshold_af",
+        type=float,
+        help="If provided, return sample IDs for variants where AF < threshold (variant_store only)"
+    )
+
     args = parser.parse_args()
 
     return args
 
 
 @dxpy.entry_point("main")
-def main(database: str, input_file: str, output_filename: str, genome_build: str, probeset: str):
+def main(database: str, input_file: str, output_filename: str,
+         genome_build: str, probeset: str, threshold_af : float):
 
     if os.path.exists("/home/dnanexus"):
         input_file = download_input_file(input_file)
@@ -114,7 +122,9 @@ def main(database: str, input_file: str, output_filename: str, genome_build: str
         filtered_df = filter_probeset(initial_df, probeset, genome_build)
     else:
         filtered_df = initial_df
-    aggregated_df = aggregate_uniq_vars(database, filtered_df, aggregated_database)
+    aggregated_df = aggregate_uniq_vars(
+        database, threshold_af, filtered_df, aggregated_database
+        )
 
     initialise_vcf(aggregated_df, minimal_vcf)
     write_vcf_header(database, genome_build, header_filename)
@@ -135,4 +145,5 @@ if os.path.exists("/home/dnanexus"):
     dxpy.run()
 elif __name__ == "__main__":
     args = parse_args()
-    main(args.database, args.input_file, args.output_filename, args.genome_build, args.probeset)
+    main(args.database, args.input_file, args.output_filename,
+         args.genome_build, args.probeset, args.threshold_af)
