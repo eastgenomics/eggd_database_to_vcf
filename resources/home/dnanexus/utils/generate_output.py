@@ -9,18 +9,20 @@ import pysam
 import pysam.bcftools
 
 
-def create_output_filename(database, genome_build, probeset) -> str:
+def create_output_filename(db, genome, probeset, capture) -> str:
     """
     Generate an output filename if none is provided
 
     Parameters
     ----------
-    database : str
+    db : str
         inca or variant_store
-    genome_build : str
+    genome : str
         GRCh37 or GRCh38
     probeset : str
         germline or somatic
+    capture : str
+        Assay and panel version, e.g. MYE_v3
 
     Returns
     -------
@@ -28,10 +30,12 @@ def create_output_filename(database, genome_build, probeset) -> str:
         Name for output VCF
     """
     date = datetime.today().strftime("%y%m%d")
-    output = f"{date}_{database}_{genome_build}"
+    output = f"{date}_{db}_{genome}"
 
-    if probeset:
+    if db == 'inca' and probeset:
         output += f"_{probeset}"
+    elif db == 'variant_store' and capture:
+        output += f"_{capture}"
 
     output += ".vcf"
 
@@ -91,6 +95,29 @@ def write_vcf_header(db, genome_build, header_filename) -> None:
             header_vcf.write(config.GRCh38_CONTIG)
 
 
+def write_rename_file(renaming_file, capture):
+    """Generate a file specifying how INFO fields should be renamed to include
+    capture assay and version.
+
+    Args:
+        renaming_file : str
+            Name of text file to hold INFO fields to change
+        capture : str
+            Assay and version for variant store data, e.g. MYE_v3
+    """
+
+    # each line has the form "<field to rename> <replacement name>"
+    rename_lines = [
+        f"INFO/CAPTURE_AF {capture}_AF",
+        f"INFO/VARIANT_COUNT {capture}_COUNT",
+        f"INFO/TOTAL_SAMPLES {capture}_TOTAL",
+        f"INFO/SAMPLE_IDS {capture}_IDS",
+        f"INFO/AGGREGATED_HGVS {capture}_HGVS"]
+
+    with open(renaming_file, 'w') as writer:
+        writer.write("\n".join(rename_lines) + "\n")
+
+
 def index_file(file) -> None:
     """
     Bgzip and index file
@@ -110,40 +137,56 @@ def index_file(file) -> None:
 
 
 def bcftools_annotate_vcf(
-    db, aggregated_database, minimal_vcf, header_filename, output_filename
+    db, aggregated_db, minimal_vcf, header_filename, temp_vcf, renaming_file, output_filename
 ) -> None:
     """
-    Run bcftools annotate to annotate the minimal VCF with the aggregated info
+    Run bcftools annotate to annotate the minimal VCF with the aggregated info.
+    For variant store data, also use bcftools annotate to rename INFO fields.
 
     Parameters
     ----------
     db : str
         Type of database (inca or variant_store)
-    aggregated_database : str
+    aggregated_db : str
         Output filename of aggregated database
     minimal_vcf : str
         Output filename for the minimal VCF
     header_filename : str
         Output filename for the VCF header
+    temp_vcf : str
+        Intermediate file for annotated variant store data prior to renaming
+    renaming_file : str
+        Defines how INFO fields should be renamed for variant store data
     output_filename : str
         Output filename for annotated VCF
     """
     if db == 'inca':
-        config_field = config.INFO_FIELDS_INCA
-    else:
-        config_field = config.INFO_FIELDS_VARSTORE
+        config_fields = config.INFO_FIELDS_INCA
+        annotation_output = output_filename
+    elif db == 'variant_store':
+        config_fields = config.INFO_FIELDS_VARSTORE
+        annotation_output = temp_vcf
 
-    info_fields = ",".join(f'INFO/{item["id"]}' for item in config_field.values())
+    info_fields = ",".join(f'INFO/{item["id"]}' for item in config_fields.values())
 
     # Run bcftools annotate with pysam
     pysam.bcftools.annotate(
-        "-a", f"{aggregated_database}.gz",
+        "-a", f"{aggregated_db}.gz",
         "-h", f"{header_filename}",
         "-c", f"CHROM,POS,REF,ALT,{info_fields}",
         "-O", "v",
-        "-o", f"{output_filename}",
+        "-o", f"{annotation_output}",
         f"{minimal_vcf}",
         catch_stdout=False
     )
+
+    # Rename INFO fields to contain assay and version
+    if db == 'variant_store':
+        pysam.bcftools.annotate(
+            "--rename-annots", renaming_file,
+            "-o", f"{output_filename}",
+            f"{temp_vcf}",
+            catch_stdout=False
+        )
 
     index_file(output_filename)
