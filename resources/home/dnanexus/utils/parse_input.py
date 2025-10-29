@@ -57,7 +57,7 @@ def clean_csv(database, input_file, genome_build) -> pd.DataFrame:
                 raise KeyError('Missing "start_38" column for GRCh38 INCA export')
             columns["start_38"] = columns.pop("start")
 
-    else:
+    elif database == 'variant_store':
         df['alternatealleles'] = df['alternatealleles'].map(
             lambda x: x.lstrip('[').rstrip(']')
             if isinstance(x, str) else x)

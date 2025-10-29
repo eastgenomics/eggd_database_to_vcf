@@ -54,6 +54,14 @@
         "optional": true,
         "default": 0.0,
         "help": "If provided, return sample IDs for variants where AF < threshold (variant_store only)"
+      },
+      {
+        "name": "capture",
+        "label": "Assay capture",
+        "class": "string",
+        "optional": true,
+        "default": "",
+        "help": "Assay and panel version used to create the data, e.g. MYE_v3 (required for variant_store)"
       }
     ],
     "outputSpec": [
