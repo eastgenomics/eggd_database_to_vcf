@@ -1,6 +1,6 @@
 {
-    "name": "eggd_inca_to_vcf",
-    "title": "eggd_inca_to_vcf",
+    "name": "eggd_database_to_vcf",
+    "title": "eggd_database_to_vcf",
     "summary": "Creates a VCF from a variant database export",
     "dxapi": "1.0.0",
     "version": "2.0.0",
@@ -93,7 +93,7 @@
         }
       },
       "interpreter": "python3",
-      "file": "resources/home/dnanexus/generate_inca_vcf.py",
+      "file": "resources/home/dnanexus/generate_vcf.py",
       "distribution": "Ubuntu",
       "release": "24.04",
       "version": "0"
