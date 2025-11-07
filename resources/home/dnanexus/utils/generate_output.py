@@ -111,8 +111,7 @@ def write_rename_file(renaming_file, capture):
         f"INFO/CAPTURE_AF {capture}_AF",
         f"INFO/VARIANT_COUNT {capture}_COUNT",
         f"INFO/TOTAL_SAMPLES {capture}_TOTAL",
-        f"INFO/SAMPLE_IDS {capture}_IDS",
-        f"INFO/AGGREGATED_HGVS {capture}_HGVS"]
+        f"INFO/SAMPLE_IDS {capture}_IDS"]
 
     with open(renaming_file, 'w') as writer:
         writer.write("\n".join(rename_lines) + "\n")

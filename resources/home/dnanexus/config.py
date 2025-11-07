@@ -56,12 +56,7 @@ INFO_FIELDS_VARSTORE = {
         "id": "SAMPLE_IDS",
         "number": 1,
         "type": "String",
-        "description": "Samples the variant was seen in (if below AF cutoff)"},
-    "aggregated_hgvs": {
-        "id": "AGGREGATED_HGVS",
-        "number": 1,
-        "type": "String",
-        "description": "Aggregated HGVSc"},
+        "description": "Samples the variant was seen in (if below AF cutoff)"}
 }
 
 GRCh37_CONTIG = '''\

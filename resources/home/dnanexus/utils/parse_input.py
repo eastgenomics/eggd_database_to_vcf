@@ -284,7 +284,6 @@ def aggregate_uniq_vars(db, threshold_af, probeset_df, aggregated_database) -> p
             )
 
         elif db == 'variant_store':
-            hgvs = aggregate_hgvs(group['attributes'])
             variant_count = len(group['sampleid'].dropna().unique())
             capture_af = variant_count / uniq_sample_count
 
@@ -303,8 +302,7 @@ def aggregate_uniq_vars(db, threshold_af, probeset_df, aggregated_database) -> p
                     "capture_af": capture_af,
                     "variant_count": variant_count,
                     "total_samples": uniq_sample_count,
-                    "sample_ids": sample_ids,
-                    "aggregated_hgvs": hgvs,
+                    "sample_ids": sample_ids
                 }
             )
 
