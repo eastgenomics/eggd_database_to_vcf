@@ -285,10 +285,10 @@ def aggregate_uniq_vars(db, threshold_af, probeset_df, aggregated_database) -> p
 
         elif db == 'variant_store':
             variant_count = len(group['sampleid'].dropna().unique())
-            capture_af = variant_count / uniq_sample_count
+            variant_proportion = variant_count / uniq_sample_count
 
             # include sample ids if a threshold AF is specified
-            if threshold_af and (capture_af < threshold_af):
+            if threshold_af and (variant_proportion < threshold_af):
                 sample_ids = "|".join(sorted(group["sampleid"].dropna().unique()))
             else:
                 sample_ids = ""
@@ -299,7 +299,7 @@ def aggregate_uniq_vars(db, threshold_af, probeset_df, aggregated_database) -> p
                     "POS": group['POS'].unique()[0],
                     "REF": group['REF'].unique()[0],
                     "ALT": group['ALT'].unique()[0],
-                    "capture_af": capture_af,
+                    "variant_proportion": variant_proportion,
                     "variant_count": variant_count,
                     "total_samples": uniq_sample_count,
                     "sample_ids": sample_ids

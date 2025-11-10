@@ -37,8 +37,8 @@ INFO_FIELDS_INCA = {
     }
 
 INFO_FIELDS_VARSTORE = {
-    "capture_af": {
-        "id": "CAPTURE_AF",
+    "variant_proportion": {
+        "id": "VARIANT_PROPORTION",
         "number": 1,
         "type": "Float",
         "description": "Proportion of samples the variant has been seen in"},
