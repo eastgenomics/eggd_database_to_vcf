@@ -52,11 +52,31 @@ INFO_FIELDS_VARSTORE = {
         "number": 1,
         "type": "Integer",
         "description": "Total number of samples evaluated"},
+    "ac_het": {
+        "id": "AC_HET",
+        "number": 1,
+        "type": "Integer",
+        "description": "Heterozygous allele count (germline variant stores only)"},
+    "ac_hom": {
+        "id": "AC_HOM",
+        "number": 1,
+        "type": "Integer",
+        "description": "Homozygous allele count (germline variant stores only)"},
+    "an": {
+        "id": "AN",
+        "number": 1,
+        "type": "Integer",
+        "description": "Total allele number across all unique samples (germline variant stores only)"},
+    "af": {
+        "id": "AF",
+        "number": 1,
+        "type": "Float",
+        "description": "Allele frequency within the relevant variant store (germline variant stores only)"},
     "sample_ids": {
         "id": "SAMPLE_IDS",
         "number": 1,
         "type": "String",
-        "description": "Samples the variant was seen in (if below AF cutoff)"}
+        "description": "Samples the variant was seen in (if below AF cutoff)"},
 }
 
 GRCh37_CONTIG = '''\

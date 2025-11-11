@@ -146,7 +146,7 @@ def main(database: str, input_file: str, output_filename: str,
     else:
         filtered_df = initial_df
     aggregated_df = aggregate_uniq_vars(
-        database, threshold_af, filtered_df, aggregated_database
+        database, capture, threshold_af, filtered_df, aggregated_database
         )
 
     initialise_vcf(aggregated_df, minimal_vcf)
