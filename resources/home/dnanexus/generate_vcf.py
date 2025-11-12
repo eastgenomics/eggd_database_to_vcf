@@ -122,11 +122,15 @@ def main(database: str, input_file: str, output_filename: str,
     elif not output_filename.endswith(".vcf"):
         raise ValueError(OUTPUT_FILENAME_ERROR)
 
+    valid_captures = ('CEN', 'WES', 'MYE', 'TSO500', 'HRD', 'PCAN')
     NO_CAPTURE_ERROR = "Capture (assay and panel version, e.g. MYE_v3) must be supplied for variant store data"
+    INVALID_CAPTURE_ERROR = f"Capture must start with one of: {', '.join(valid_captures)}"
     THRESHOLD_RANGE_ERROR = "Threshold AF must be within range 0-1"
     if database == 'variant_store':
         if not capture:
             raise ValueError(NO_CAPTURE_ERROR)
+        elif capture and not capture.startswith(valid_captures):
+            raise ValueError(INVALID_CAPTURE_ERROR)
         if threshold_af and not (0 <= threshold_af <= 1):
             raise ValueError(THRESHOLD_RANGE_ERROR)
 
@@ -142,7 +146,7 @@ def main(database: str, input_file: str, output_filename: str,
     else:
         filtered_df = initial_df
     aggregated_df = aggregate_uniq_vars(
-        database, threshold_af, filtered_df, aggregated_database
+        database, capture, threshold_af, filtered_df, aggregated_database
         )
 
     initialise_vcf(aggregated_df, minimal_vcf)

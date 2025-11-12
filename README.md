@@ -1,4 +1,4 @@
-# eggd_inca_to_vcf
+# eggd_database_to_vcf
 
 ## What does this app do?
 
@@ -35,7 +35,7 @@ dx run $app_id \
 -y
 
 # locally
-python3 generate_inca_vcf.py \
+python3 generate_vcf.py \
 --database $database \
 --genome_build $genome_build \
 --input_file $input_file \

@@ -37,8 +37,8 @@ INFO_FIELDS_INCA = {
     }
 
 INFO_FIELDS_VARSTORE = {
-    "capture_af": {
-        "id": "CAPTURE_AF",
+    "variant_proportion": {
+        "id": "VARIANT_PROPORTION",
         "number": 1,
         "type": "Float",
         "description": "Proportion of samples the variant has been seen in"},
@@ -52,16 +52,31 @@ INFO_FIELDS_VARSTORE = {
         "number": 1,
         "type": "Integer",
         "description": "Total number of samples evaluated"},
+    "ac_het": {
+        "id": "AC_HET",
+        "number": 1,
+        "type": "Integer",
+        "description": "Heterozygous allele count (germline variant stores only)"},
+    "ac_hom": {
+        "id": "AC_HOM",
+        "number": 1,
+        "type": "Integer",
+        "description": "Homozygous allele count (germline variant stores only)"},
+    "an": {
+        "id": "AN",
+        "number": 1,
+        "type": "Integer",
+        "description": "Total allele number across all unique samples (germline variant stores only)"},
+    "af": {
+        "id": "AF",
+        "number": 1,
+        "type": "Float",
+        "description": "Allele frequency within the relevant variant store (germline variant stores only)"},
     "sample_ids": {
         "id": "SAMPLE_IDS",
         "number": 1,
         "type": "String",
         "description": "Samples the variant was seen in (if below AF cutoff)"},
-    "aggregated_hgvs": {
-        "id": "AGGREGATED_HGVS",
-        "number": 1,
-        "type": "String",
-        "description": "Aggregated HGVSc"},
 }
 
 GRCh37_CONTIG = '''\

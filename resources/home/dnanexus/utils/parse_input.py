@@ -211,17 +211,22 @@ def sort_aggregated_data(aggregated_df) -> pd.DataFrame:
     pd.DataFrame
         Dataframe sorted by CHROM and POS
     """
-    # Define chromosome order: numeric first, then X and Y and sort
+
+    # Define chromosome order: numeric first, then X and Y
     chromosome_order = [str(i) for i in range(1, 23)] + ["X", "Y"]
+
+    # convert CHROM field to string before sorting
+    aggregated_df["CHROM"] = (aggregated_df["CHROM"].astype(str))
     aggregated_df["CHROM"] = pd.Categorical(
         aggregated_df["CHROM"], categories=chromosome_order, ordered=True
     )
+
     aggregated_df = aggregated_df.sort_values(by=["CHROM", "POS", "REF", "ALT"])
 
     return aggregated_df
 
 
-def aggregate_uniq_vars(db, threshold_af, probeset_df, aggregated_database) -> pd.DataFrame:
+def aggregate_uniq_vars(db, capture, threshold_af, probeset_df, aggregated_database) -> pd.DataFrame:
     """
     Aggregate data for each unique variant
     Similaritites to create_vcf_from_inca_csv.py by Raymond Miles
@@ -230,8 +235,10 @@ def aggregate_uniq_vars(db, threshold_af, probeset_df, aggregated_database) -> p
     ----------
     db : str
         Type of database (inca or variant_store)
+    capture : str
+        Capture (assay and version) used to generate variant store data, e.g MYE_v3
     threshold_af : float | None
-        If set, include SAMPLE_IDS when capture_af < threshold_af (variant_store only)
+        If set, include SAMPLE_IDS when variant_proportion < threshold_af (variant_store only)
     probeset_df : pd.DataFrame
         Dataframe filtered by probeset
     aggregated_database : str
@@ -284,27 +291,38 @@ def aggregate_uniq_vars(db, threshold_af, probeset_df, aggregated_database) -> p
             )
 
         elif db == 'variant_store':
-            hgvs = aggregate_hgvs(group['attributes'])
+            chrom = group['CHROM'].unique()[0]
             variant_count = len(group['sampleid'].dropna().unique())
-            capture_af = variant_count / uniq_sample_count
+            variant_proportion = variant_count / uniq_sample_count
+
+            # calculate AC, AN and AF for non-X/Y germline variants
+            ac_het = ac_hom = an = af = ''
+            if capture.startswith(('CEN', 'WES')) and chrom not in ['X', 'Y']:
+                ac_het = len(group[group['calls'] == '[0, 1]'])
+                ac_hom = 2 * len(group[group['calls'] == '[1, 1]'])
+                an = 2 * uniq_sample_count
+                af = (ac_het + ac_hom) / an
 
             # include sample ids if a threshold AF is specified
-            if threshold_af and (capture_af < threshold_af):
+            if threshold_af and (variant_proportion < threshold_af):
                 sample_ids = "|".join(sorted(group["sampleid"].dropna().unique()))
             else:
                 sample_ids = ""
 
             aggregated_data.append(
                 {
-                    "CHROM": group['CHROM'].unique()[0],
+                    "CHROM": chrom,
                     "POS": group['POS'].unique()[0],
                     "REF": group['REF'].unique()[0],
                     "ALT": group['ALT'].unique()[0],
-                    "capture_af": capture_af,
+                    "variant_proportion": variant_proportion,
                     "variant_count": variant_count,
                     "total_samples": uniq_sample_count,
+                    "ac_het": ac_het,
+                    "ac_hom": ac_hom,
+                    "an": an,
+                    "af": af,
                     "sample_ids": sample_ids,
-                    "aggregated_hgvs": hgvs,
                 }
             )
 
@@ -316,4 +334,5 @@ def aggregate_uniq_vars(db, threshold_af, probeset_df, aggregated_database) -> p
     aggregated_df["POS"] = aggregated_df["POS"].astype("Int64")
     aggregated_df = sort_aggregated_data(aggregated_df)
     aggregated_df.to_csv(aggregated_database, sep="\t", index=False, header=False)
+
     return aggregated_df
