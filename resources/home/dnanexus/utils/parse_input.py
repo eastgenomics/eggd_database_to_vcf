@@ -211,16 +211,15 @@ def sort_aggregated_data(aggregated_df) -> pd.DataFrame:
     pd.DataFrame
         Dataframe sorted by CHROM and POS
     """
-    chrom_values = aggregated_df['CHROM'].dropna().unique()
 
-    # pd.Categorical fails (and is redundant) if df only contains numerical CHROM values
-    if 'X' in chrom_values or 'Y' in chrom_values:
+    # Define chromosome order: numeric first, then X and Y
+    chromosome_order = [str(i) for i in range(1, 23)] + ["X", "Y"]
 
-        # Define chromosome order: numeric first, then X and Y
-        chromosome_order = [str(i) for i in range(1, 23)] + ["X", "Y"]
-        aggregated_df["CHROM"] = pd.Categorical(
-            aggregated_df["CHROM"], categories=chromosome_order, ordered=True
-        )
+    # convert CHROM field to string before sorting
+    aggregated_df["CHROM"] = (aggregated_df["CHROM"].astype(str))
+    aggregated_df["CHROM"] = pd.Categorical(
+        aggregated_df["CHROM"], categories=chromosome_order, ordered=True
+    )
 
     aggregated_df = aggregated_df.sort_values(by=["CHROM", "POS", "REF", "ALT"])
 
@@ -239,7 +238,7 @@ def aggregate_uniq_vars(db, capture, threshold_af, probeset_df, aggregated_datab
     capture : str
         Capture (assay and version) used to generate variant store data, e.g MYE_v3
     threshold_af : float | None
-        If set, include SAMPLE_IDS when capture_af < threshold_af (variant_store only)
+        If set, include SAMPLE_IDS when variant_proportion < threshold_af (variant_store only)
     probeset_df : pd.DataFrame
         Dataframe filtered by probeset
     aggregated_database : str
