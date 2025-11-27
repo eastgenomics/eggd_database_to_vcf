@@ -65,8 +65,7 @@ def clean_csv(database, input_file, genome_build) -> pd.DataFrame:
             "contigname": "CHROM",
             "start": "POS",
             "referenceallele": "REF",
-            "alternatealleles": "ALT",
-            "filters": "FILTER"
+            "alternatealleles": "ALT"
         }
 
     df.rename(columns=columns, inplace=True)
@@ -226,7 +225,7 @@ def sort_aggregated_data(aggregated_df) -> pd.DataFrame:
     return aggregated_df
 
 
-def aggregate_uniq_vars(db, capture, threshold_af, probeset_df, aggregated_database) -> pd.DataFrame:
+def aggregate_uniq_vars(db, capture, probeset_df, aggregated_database) -> pd.DataFrame:
     """
     Aggregate data for each unique variant
     Similaritites to create_vcf_from_inca_csv.py by Raymond Miles
@@ -237,8 +236,6 @@ def aggregate_uniq_vars(db, capture, threshold_af, probeset_df, aggregated_datab
         Type of database (inca or variant_store)
     capture : str
         Capture (assay and version) used to generate variant store data, e.g MYE_v3
-    threshold_af : float | None
-        If set, include SAMPLE_IDS when variant_proportion < threshold_af (variant_store only)
     probeset_df : pd.DataFrame
         Dataframe filtered by probeset
     aggregated_database : str
@@ -255,9 +252,6 @@ def aggregate_uniq_vars(db, capture, threshold_af, probeset_df, aggregated_datab
 
     if db == 'variant_store':
         uniq_sample_count = len(probeset_df["sampleid"].dropna().unique())
-        NO_SAMPLES_ERROR = "sampleid column is empty"
-        if not uniq_sample_count:
-            raise ValueError(NO_SAMPLES_ERROR)
 
     for _, group in grouped:
         if db == 'inca':
@@ -303,12 +297,6 @@ def aggregate_uniq_vars(db, capture, threshold_af, probeset_df, aggregated_datab
                 an = 2 * uniq_sample_count
                 af = (ac_het + ac_hom) / an
 
-            # include sample ids if a threshold AF is specified
-            if threshold_af and (variant_proportion < threshold_af):
-                sample_ids = "|".join(sorted(group["sampleid"].dropna().unique()))
-            else:
-                sample_ids = ""
-
             aggregated_data.append(
                 {
                     "CHROM": chrom,
@@ -321,8 +309,7 @@ def aggregate_uniq_vars(db, capture, threshold_af, probeset_df, aggregated_datab
                     "ac_het": ac_het,
                     "ac_hom": ac_hom,
                     "an": an,
-                    "af": af,
-                    "sample_ids": sample_ids,
+                    "af": af
                 }
             )
 

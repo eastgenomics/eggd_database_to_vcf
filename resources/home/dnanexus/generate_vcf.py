@@ -90,13 +90,6 @@ def parse_args() -> argparse.Namespace:
     )
 
     parser.add_argument(
-        "-t",
-        "--threshold_af",
-        type=float,
-        help="If provided, return sample IDs for variants where AF < threshold (variant_store only)"
-    )
-
-    parser.add_argument(
         "-c",
         "--capture",
         type=str,
@@ -110,7 +103,7 @@ def parse_args() -> argparse.Namespace:
 
 @dxpy.entry_point("main")
 def main(database: str, input_file: str, output_filename: str,
-         genome_build: str, probeset: str, threshold_af : float, capture : str):
+         genome_build: str, probeset: str, capture : str):
 
     if os.path.exists("/home/dnanexus"):
         input_file = download_input_file(input_file)
@@ -125,14 +118,11 @@ def main(database: str, input_file: str, output_filename: str,
     valid_captures = ('CEN', 'WES', 'MYE', 'TSO500', 'HRD', 'PCAN')
     NO_CAPTURE_ERROR = "Capture (assay and panel version, e.g. MYE_v3) must be supplied for variant store data"
     INVALID_CAPTURE_ERROR = f"Capture must start with one of: {', '.join(valid_captures)}"
-    THRESHOLD_RANGE_ERROR = "Threshold AF must be within range 0-1"
     if database == 'variant_store':
         if not capture:
             raise ValueError(NO_CAPTURE_ERROR)
         elif capture and not capture.startswith(valid_captures):
             raise ValueError(INVALID_CAPTURE_ERROR)
-        if threshold_af and not (0 <= threshold_af <= 1):
-            raise ValueError(THRESHOLD_RANGE_ERROR)
 
     aggregated_database = "aggregated_database.tsv"
     minimal_vcf = "minimal_vcf.vcf"
@@ -146,7 +136,7 @@ def main(database: str, input_file: str, output_filename: str,
     else:
         filtered_df = initial_df
     aggregated_df = aggregate_uniq_vars(
-        database, capture, threshold_af, filtered_df, aggregated_database
+        database, capture, filtered_df, aggregated_database
         )
 
     initialise_vcf(aggregated_df, minimal_vcf)
@@ -172,4 +162,4 @@ if os.path.exists("/home/dnanexus"):
 elif __name__ == "__main__":
     args = parse_args()
     main(args.database, args.input_file, args.output_filename,
-         args.genome_build, args.probeset, args.threshold_af, args.capture)
+         args.genome_build, args.probeset, args.capture)

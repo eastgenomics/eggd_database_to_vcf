@@ -72,11 +72,6 @@ INFO_FIELDS_VARSTORE = {
         "number": 1,
         "type": "Float",
         "description": "Allele frequency within the relevant variant store (germline variant stores only)"},
-    "sample_ids": {
-        "id": "SAMPLE_IDS",
-        "number": 1,
-        "type": "String",
-        "description": "Samples the variant was seen in (if below AF cutoff)"},
 }
 
 GRCh37_CONTIG = '''\
