@@ -133,11 +133,9 @@ def main(database: str, input_file: str, output_filename: str,
     initial_df = clean_csv(database, input_file, genome_build)
     if database == 'inca':
         filtered_df = filter_probeset(initial_df, probeset, genome_build)
-    else:
+    elif database == 'variant_store':
         filtered_df = initial_df
-    aggregated_df = aggregate_uniq_vars(
-        database, capture, filtered_df, aggregated_database
-        )
+    aggregated_df = aggregate_uniq_vars(database, filtered_df, aggregated_database)
 
     initialise_vcf(aggregated_df, minimal_vcf)
     write_vcf_header(database, genome_build, header_filename)

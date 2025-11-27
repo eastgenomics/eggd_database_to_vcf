@@ -108,14 +108,11 @@ def write_rename_file(renaming_file, capture):
 
     # each line has the form "<field to rename> <replacement name>"
     rename_lines = [
-        f"INFO/VARIANT_PROPORTION {capture}_PROPORTION",
-        f"INFO/VARIANT_COUNT {capture}_COUNT",
-        f"INFO/TOTAL_SAMPLES {capture}_TOTAL",
-        f"INFO/AC_HET {capture}_AC_HET",
-        f"INFO/AC_HOM {capture}_AC_HOM",
+        f"INFO/HET_COUNT {capture}_HET_COUNT",
+        f"INFO/HOM_COUNT {capture}_HOM_COUNT",
+        f"INFO/AC {capture}_AC",
         f"INFO/AN {capture}_AN",
-        f"INFO/AF {capture}_AF",
-        f"INFO/SAMPLE_IDS {capture}_IDS",
+        f"INFO/AF {capture}_AF"
         ]
 
     with open(renaming_file, 'w') as writer:
