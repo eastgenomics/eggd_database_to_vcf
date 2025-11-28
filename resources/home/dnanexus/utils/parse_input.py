@@ -58,6 +58,7 @@ def clean_csv(database, input_file, genome_build) -> pd.DataFrame:
             columns["start_38"] = columns.pop("start")
 
     elif database == 'variant_store':
+        df = df.fillna(value={'hom_count': 0})
         df['alternatealleles'] = df['alternatealleles'].map(
             lambda x: x.lstrip('[').rstrip(']')
             if isinstance(x, str) else x)
@@ -65,8 +66,7 @@ def clean_csv(database, input_file, genome_build) -> pd.DataFrame:
             "contigname": "CHROM",
             "start": "POS",
             "referenceallele": "REF",
-            "alternatealleles": "ALT",
-            "filters": "FILTER"
+            "alternatealleles": "ALT"
         }
 
     df.rename(columns=columns, inplace=True)
@@ -226,7 +226,7 @@ def sort_aggregated_data(aggregated_df) -> pd.DataFrame:
     return aggregated_df
 
 
-def aggregate_uniq_vars(db, capture, threshold_af, probeset_df, aggregated_database) -> pd.DataFrame:
+def aggregate_uniq_vars(db, df, aggregated_database) -> pd.DataFrame:
     """
     Aggregate data for each unique variant
     Similaritites to create_vcf_from_inca_csv.py by Raymond Miles
@@ -234,15 +234,11 @@ def aggregate_uniq_vars(db, capture, threshold_af, probeset_df, aggregated_datab
     Parameters
     ----------
     db : str
-        Type of database (inca or variant_store)
-    capture : str
-        Capture (assay and version) used to generate variant store data, e.g MYE_v3
-    threshold_af : float | None
-        If set, include SAMPLE_IDS when variant_proportion < threshold_af (variant_store only)
-    probeset_df : pd.DataFrame
-        Dataframe filtered by probeset
+        Type of data, 'inca' or 'variant_store'
+    df : pd.DataFrame
+        Dataframe of variant data
     aggregated_database : str
-        Output filename for aggregated data
+        Output filename for CSV containing aggregated data
 
     Returns
     -------
@@ -250,17 +246,11 @@ def aggregate_uniq_vars(db, capture, threshold_af, probeset_df, aggregated_datab
         Dataframe of aggregated data
     """
 
-    aggregated_data = []
-    grouped = probeset_df.groupby(["CHROM", "POS", "REF", "ALT"])
+    if db == 'inca':
+        aggregated_data = []
+        grouped = df.groupby(["CHROM", "POS", "REF", "ALT"])
 
-    if db == 'variant_store':
-        uniq_sample_count = len(probeset_df["sampleid"].dropna().unique())
-        NO_SAMPLES_ERROR = "sampleid column is empty"
-        if not uniq_sample_count:
-            raise ValueError(NO_SAMPLES_ERROR)
-
-    for _, group in grouped:
-        if db == 'inca':
+        for _, group in grouped:
             latest_entry = get_latest_entry(group)
             latest_germline = latest_entry["germline_classification"]
             latest_oncogenicity = latest_entry["oncogenicity_classification"]
@@ -290,43 +280,16 @@ def aggregate_uniq_vars(db, capture, threshold_af, probeset_df, aggregated_datab
                 }
             )
 
-        elif db == 'variant_store':
-            chrom = group['CHROM'].unique()[0]
-            variant_count = len(group['sampleid'].dropna().unique())
-            variant_proportion = variant_count / uniq_sample_count
+        aggregated_df = pd.DataFrame(aggregated_data)
 
-            # calculate AC, AN and AF for non-X/Y germline variants
-            ac_het = ac_hom = an = af = ''
-            if capture.startswith(('CEN', 'WES')) and chrom not in ['X', 'Y']:
-                ac_het = len(group[group['calls'] == '[0, 1]'])
-                ac_hom = 2 * len(group[group['calls'] == '[1, 1]'])
-                an = 2 * uniq_sample_count
-                af = (ac_het + ac_hom) / an
+    elif db == 'variant_store':
+        df['het_count'] = df['allele_count'] - (2 * df['hom_count'])
+        df["het_count"] = df["het_count"].astype("Int64")
+        df["hom_count"] = df["hom_count"].astype("Int64")
+        aggregated_df = df[[
+            'CHROM', 'POS', 'REF', 'ALT', 'het_count', 'hom_count',
+            'allele_count', 'allele_number', 'allele_frequency']]
 
-            # include sample ids if a threshold AF is specified
-            if threshold_af and (variant_proportion < threshold_af):
-                sample_ids = "|".join(sorted(group["sampleid"].dropna().unique()))
-            else:
-                sample_ids = ""
-
-            aggregated_data.append(
-                {
-                    "CHROM": chrom,
-                    "POS": group['POS'].unique()[0],
-                    "REF": group['REF'].unique()[0],
-                    "ALT": group['ALT'].unique()[0],
-                    "variant_proportion": variant_proportion,
-                    "variant_count": variant_count,
-                    "total_samples": uniq_sample_count,
-                    "ac_het": ac_het,
-                    "ac_hom": ac_hom,
-                    "an": an,
-                    "af": af,
-                    "sample_ids": sample_ids,
-                }
-            )
-
-    aggregated_df = pd.DataFrame(aggregated_data)
     VARIANT_ERROR = "There are no variants to process. Please check inputs and filters."
     if aggregated_df.empty:
         raise AssertionError(VARIANT_ERROR)

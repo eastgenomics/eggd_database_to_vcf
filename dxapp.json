@@ -48,14 +48,6 @@
         "help": "Probeset to optionally filter inca variants by (germline or somatic)"
       },
       {
-        "name": "threshold_af",
-        "label": "AF threshold",
-        "class": "float",
-        "optional": true,
-        "default": 0.0,
-        "help": "If provided, return sample IDs for variants where AF < threshold (variant_store only)"
-      },
-      {
         "name": "capture",
         "label": "Assay capture",
         "class": "string",

@@ -18,7 +18,6 @@ Given a database export CSV from either inca or a variant store, aggregates vari
 * `capture [str]` (required for variant store): Assay and panel version used to generate the data. Example: MYE_v3
 * `output_filename [str]` (optional): Output filename for annotated VCF
 * `probeset [str]` (optional, inca only): Probeset to filter data on. Options: germline, somatic
-* `threshold_af [float]` (optional, variant_store only): If provided, includes sample IDs for variants with AF < threshold_af. Range: 0-1
 
 ## How to run
 
@@ -31,7 +30,6 @@ dx run $app_id \
 [ -icapture=$capture ] \
 [ -ioutput_filename=$output_filename ] \
 [ -iprobeset=$probeset ] \
-[ -ithreshold_af=$threshold_af ] \
 -y
 
 # locally
@@ -41,8 +39,7 @@ python3 generate_vcf.py \
 --input_file $input_file \
 [ --capture $capture ] \
 [ --output_filename $output_filename ] \
-[ --probeset $probeset ] \
-[ --threshold_af $threshold_af ]
+[ --probeset $probeset ]
 ```
 
 ## What does this app output?

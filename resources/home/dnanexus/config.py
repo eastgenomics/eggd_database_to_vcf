@@ -37,46 +37,31 @@ INFO_FIELDS_INCA = {
     }
 
 INFO_FIELDS_VARSTORE = {
-    "variant_proportion": {
-        "id": "VARIANT_PROPORTION",
-        "number": 1,
-        "type": "Float",
-        "description": "Proportion of samples the variant has been seen in"},
-    "variant_count": {
-        "id": "VARIANT_COUNT",
+    "het_count": {
+        "id": "HET_COUNT",
         "number": 1,
         "type": "Integer",
-        "description": "Number of samples the variant has been seen in"},
-    "total_samples": {
-        "id": "TOTAL_SAMPLES",
+        "description": "Number of samples heterozygous for the variant"},
+    "hom_count": {
+        "id": "HOM_COUNT",
         "number": 1,
         "type": "Integer",
-        "description": "Total number of samples evaluated"},
-    "ac_het": {
-        "id": "AC_HET",
+        "description": "Number of samples homozygous for the variant"},
+    "allele_count": {
+        "id": "AC",
         "number": 1,
         "type": "Integer",
-        "description": "Heterozygous allele count (germline variant stores only)"},
-    "ac_hom": {
-        "id": "AC_HOM",
-        "number": 1,
-        "type": "Integer",
-        "description": "Homozygous allele count (germline variant stores only)"},
-    "an": {
+        "description": "Total number of ALT alleles seen"},
+    "allele_number": {
         "id": "AN",
         "number": 1,
         "type": "Integer",
-        "description": "Total allele number across all unique samples (germline variant stores only)"},
-    "af": {
+        "description": "Total number of alleles seen"},
+    "allele_frequency": {
         "id": "AF",
         "number": 1,
         "type": "Float",
-        "description": "Allele frequency within the relevant variant store (germline variant stores only)"},
-    "sample_ids": {
-        "id": "SAMPLE_IDS",
-        "number": 1,
-        "type": "String",
-        "description": "Samples the variant was seen in (if below AF cutoff)"},
+        "description": "Allele frequency within the relevant variant store"},
 }
 
 GRCh37_CONTIG = '''\
