@@ -1,48 +1,65 @@
 {
-    "name": "eggd_inca_to_vcf",
-    "title": "eggd_inca_to_vcf",
-    "summary": "Creates a VCF from an inca database export",
+    "name": "eggd_database_to_vcf",
+    "title": "eggd_database_to_vcf",
+    "summary": "Creates a VCF from a variant database export",
     "dxapi": "1.0.0",
-    "version": "1.0.0",
+    "version": "2.0.0",
     "inputSpec": [
       {
+        "name": "database",
+        "label": "Database type",
+        "class": "string",
+        "optional": false,
+        "choices": ["inca", "variant_store"],
+        "help": "Type of database (inca or variant_store)"
+      },
+      {
         "name": "input_file",
-        "label": "Inca database export",
+        "label": "Database export CSV file",
         "class": "file",
         "optional": false,
         "patterns": [
           "*.csv"
         ],
-        "help": "Inca database export as a CSV file"
+        "help": "Database export as a CSV file"
       },
       {
         "name": "output_filename",
         "label": "Optional output filename",
         "class": "string",
-        "default": "output.vcf",
         "optional": true,
-        "help": "Genome build for header annotation"
+        "default": "",
+        "help": "Name for output VCF file"
       },
       {
         "name": "genome_build",
         "label": "Genome build",
         "class": "string",
         "optional": false,
+        "choices": ["GRCh37", "GRCh38"],
         "help": "Genome build for header annotation"
       },
       {
         "name": "probeset",
-        "label": "Probeset or allele origin",
+        "label": "Probeset",
         "class": "string",
-        "default": "germline somatic",
-        "optional": false,
-        "help": "One or more probeset IDs or allele origins"
+        "optional": true,
+        "default": "",
+        "help": "Probeset to optionally filter inca variants by (germline or somatic)"
+      },
+      {
+        "name": "capture",
+        "label": "Assay capture",
+        "class": "string",
+        "optional": true,
+        "default": "",
+        "help": "Assay and panel version used to create the data, e.g. MYE_v3 (required for variant_store)"
       }
     ],
     "outputSpec": [
       {
         "name": "output_vcf",
-        "label": "Output VCF of aggregated info from inca database CSV",
+        "label": "Output VCF of aggregated info from database CSV",
         "class": "file",
         "patterns": [
           "*.vcf.gz"
@@ -68,7 +85,7 @@
         }
       },
       "interpreter": "python3",
-      "file": "resources/home/dnanexus/generate_inca_vcf.py",
+      "file": "resources/home/dnanexus/generate_vcf.py",
       "distribution": "Ubuntu",
       "release": "24.04",
       "version": "0"

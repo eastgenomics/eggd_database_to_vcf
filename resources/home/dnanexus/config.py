@@ -1,4 +1,4 @@
-INFO_FIELDS = {
+INFO_FIELDS_INCA = {
     "latest_germline": {
         "id": "LATEST_GERMLINE",
         "number": 1,
@@ -35,6 +35,34 @@ INFO_FIELDS = {
         "type": "String",
         "description": "Aggregated HGVSc"}
     }
+
+INFO_FIELDS_VARSTORE = {
+    "het_count": {
+        "id": "HET_COUNT",
+        "number": 1,
+        "type": "Integer",
+        "description": "Number of samples heterozygous for the variant"},
+    "hom_count": {
+        "id": "HOM_COUNT",
+        "number": 1,
+        "type": "Integer",
+        "description": "Number of samples homozygous for the variant"},
+    "allele_count": {
+        "id": "AC",
+        "number": 1,
+        "type": "Integer",
+        "description": "Total number of ALT alleles seen"},
+    "allele_number": {
+        "id": "AN",
+        "number": 1,
+        "type": "Integer",
+        "description": "Total number of alleles seen"},
+    "allele_frequency": {
+        "id": "AF",
+        "number": 1,
+        "type": "Float",
+        "description": "Allele frequency within the relevant variant store"},
+}
 
 GRCh37_CONTIG = '''\
 ##contig=<ID=1,length=249250621>
