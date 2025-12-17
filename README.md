@@ -1,5 +1,8 @@
 # eggd_database_to_vcf
 
+> [!NOTE]
+> v1.0.0 of this app was named eggd_inca_to_vcf. v2.0.0 onwards is named eggd_database_to_vcf as it handles multiple databases.
+
 ## What does this app do?
 
 Given a database export CSV from either inca or a variant store, aggregates variant information and produces a VEP-compatible VCF.
